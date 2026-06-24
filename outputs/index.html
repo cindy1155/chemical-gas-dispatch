@@ -625,6 +625,10 @@
             <h2>每日派車列表</h2>
             <p>一般排班與每日固定派車會顯示在同一份每日派車列表中。</p>
           </div>
+          <div class="panel-header">
+            <p>可追蹤車輛即時位置，並將目前派車表匯出為 Excel。</p>
+            <button id="exportExcelButton" type="button">匯出 Excel</button>
+          </div>
           <div id="locationPanel"></div>
           <div class="task-list" id="taskList"></div>
         </div>
@@ -709,6 +713,7 @@
       const frequencyField = document.querySelector("#frequencyField");
       const taskList = document.querySelector("#taskList");
       const locationPanel = document.querySelector("#locationPanel");
+      const exportExcelButton = document.querySelector("#exportExcelButton");
       const metrics = document.querySelector("#metrics");
       const gasMetrics = document.querySelector("#gasMetrics");
 
@@ -932,6 +937,68 @@
         return "";
       }
 
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function exportDispatchExcel() {
+        const headers = [
+          "任務編號",
+          "登錄類型",
+          "訂單編號",
+          "派車時間",
+          "出廠時間",
+          "指定到達時間",
+          "客戶/路線",
+          "氣體種類",
+          "車輛",
+          "司機",
+          "固定頻率",
+          "狀態",
+        ];
+        const rows = tasks.map((task) => [
+          task.id,
+          task.scheduleType,
+          task.orderNumber || "未填",
+          task.dispatchTime,
+          task.departureTime,
+          task.arrivalTime,
+          task.customer,
+          task.gasType,
+          task.vehicle,
+          task.driver,
+          task.scheduleType === "固定派車" ? task.frequency : "",
+          task.status,
+        ]);
+        const tableRows = [headers, ...rows]
+          .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+          .join("");
+        const workbook = `
+          <html>
+            <head><meta charset="UTF-8" /></head>
+            <body><table>${tableRows}</table></body>
+          </html>
+        `;
+        const blob = new Blob([workbook], {
+          type: "application/vnd.ms-excel;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `dispatch-${new Date().toISOString().slice(0, 10)}.xls`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      exportExcelButton.addEventListener("click", exportDispatchExcel);
+
       document.querySelector("#showRegister").addEventListener("click", () => {
         loginCard.style.display = "none";
         registerCard.style.display = "block";
@@ -1041,6 +1108,26 @@
         frequencyField.style.display = "none";
         renderDashboard();
       });
+
+      window.setInterval(() => {
+        const location = vehicleLocations[trackedVehicle];
+
+        if (!location) {
+          return;
+        }
+
+        vehicleLocations[trackedVehicle] = {
+          ...location,
+          latitude: Number((location.latitude + 0.00012).toFixed(6)),
+          longitude: Number((location.longitude + 0.00009).toFixed(6)),
+          updatedAt: new Date().toLocaleTimeString("zh-TW", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        };
+        renderDashboard();
+      }, 5000);
 
       document.querySelector("#logoutButton").addEventListener("click", () => {
         dashboardPage.style.display = "none";

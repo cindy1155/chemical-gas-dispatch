@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 type DispatchStatus = "待派車" | "配送中" | "已完成";
@@ -44,7 +44,7 @@ const gasOptions: GasType[] = ["氮氣 N2", "氧氣 O2", "氬氣 Ar", "二氧化
 const frequencyOptions: FixedFrequency[] = ["日", "每二日", "週"];
 const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
 
-const vehicleLocations: Record<string, VehicleLocation> = {
+const initialVehicleLocations: Record<string, VehicleLocation> = {
   "車輛 A-102": {
     vehicle: "車輛 A-102",
     area: "新竹市東區",
@@ -159,6 +159,8 @@ export function DashboardPage() {
   const [form, setForm] = useState<DispatchFormState>(initialFormState);
   const [error, setError] = useState("");
   const [trackedVehicle, setTrackedVehicle] = useState("車輛 A-102");
+  const [vehicleLocations, setVehicleLocations] =
+    useState<Record<string, VehicleLocation>>(initialVehicleLocations);
 
   const summary = useMemo(
     () => ({
@@ -181,6 +183,34 @@ export function DashboardPage() {
   );
 
   const trackedLocation = vehicleLocations[trackedVehicle];
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setVehicleLocations((current) => {
+        const currentLocation = current[trackedVehicle];
+
+        if (!currentLocation) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [trackedVehicle]: {
+            ...currentLocation,
+            latitude: Number((currentLocation.latitude + 0.00012).toFixed(6)),
+            longitude: Number((currentLocation.longitude + 0.00009).toFixed(6)),
+            updatedAt: new Date().toLocaleTimeString("zh-TW", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+          },
+        };
+      });
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [trackedVehicle]);
 
   const getGasLimitError = (gasType: GasType) => {
     const usedTrips = tasks.filter((task) => task.gasType === gasType).length;
@@ -227,6 +257,27 @@ export function DashboardPage() {
     setForm(initialFormState);
   };
 
+  const handleTrackVehicle = (vehicle: string) => {
+    setTrackedVehicle(vehicle);
+    setVehicleLocations((current) => {
+      if (current[vehicle]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [vehicle]: {
+          vehicle,
+          area: "尚無即時區域資料",
+          address: "此車輛尚未串接 GPS 回傳位置",
+          latitude: 24.1477,
+          longitude: 120.6736,
+          updatedAt: "尚未更新",
+        },
+      };
+    });
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -270,8 +321,20 @@ export function DashboardPage() {
             description="一般排班與每日固定派車會顯示在同一份每日派車列表中。"
             title="每日派車列表"
           />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-5">
+            <p className="text-sm text-slate-600">
+              可追蹤車輛即時位置，並將目前派車表匯出為 Excel。
+            </p>
+            <button
+              className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800"
+              onClick={() => exportDispatchExcel(tasks)}
+              type="button"
+            >
+              匯出 Excel
+            </button>
+          </div>
           {trackedLocation ? <VehicleLocationPanel location={trackedLocation} /> : null}
-          <DispatchList items={tasks} onTrack={setTrackedVehicle} />
+          <DispatchList items={tasks} onTrack={handleTrackVehicle} />
         </div>
 
         <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -289,6 +352,73 @@ export function DashboardPage() {
       </section>
     </main>
   );
+}
+
+function exportDispatchExcel(tasks: DispatchTask[]) {
+  const headers = [
+    "任務編號",
+    "登錄類型",
+    "訂單編號",
+    "派車時間",
+    "出廠時間",
+    "指定到達時間",
+    "客戶/路線",
+    "氣體種類",
+    "車輛",
+    "司機",
+    "固定頻率",
+    "狀態",
+  ];
+  const rows = tasks.map((task) => [
+    task.id,
+    task.scheduleType,
+    task.orderNumber || "未填",
+    task.dispatchTime,
+    task.departureTime,
+    task.arrivalTime,
+    task.customer,
+    task.gasType,
+    task.vehicle,
+    task.driver,
+    task.scheduleType === "固定派車" ? task.frequency : "",
+    task.status,
+  ]);
+  const tableRows = [headers, ...rows]
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join("")}</tr>`,
+    )
+    .join("");
+  const workbook = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+      </head>
+      <body>
+        <table>${tableRows}</table>
+      </body>
+    </html>
+  `;
+  const blob = new Blob([workbook], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `dispatch-${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 type DispatchListProps = {
