@@ -151,6 +151,11 @@ const normalizeGasType = (value: string): GasType => {
   return "氮氣 N2";
 };
 
+const formatOrderNumber = (orderNumber: string) => {
+  const digits = orderNumber.replace(/\D/g, "");
+  return digits ? digits.slice(-5) : orderNumber.replace(/^SO-/i, "").slice(-5);
+};
+
 const includesKeyword = (value: string | number | null | undefined, keyword: string) =>
   String(value ?? "").toLowerCase().includes(keyword.trim().toLowerCase());
 
@@ -217,7 +222,7 @@ const initialFormState: DispatchFormState = {
 };
 
 const dispatchSearchOptions: SearchFieldOption<DispatchTask>[] = [
-  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => formatOrderNumber(item.orderNumber) },
   { value: "serviceDate", label: "派車日期", getValue: (item) => item.serviceDate },
   { value: "customer", label: "客戶/路線", getValue: (item) => item.customer },
   { value: "gasType", label: "氣體種類", getValue: (item) => item.gasType },
@@ -228,7 +233,7 @@ const dispatchSearchOptions: SearchFieldOption<DispatchTask>[] = [
 ];
 
 const customerOrderSearchOptions: SearchFieldOption<DispatchTask>[] = [
-  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => formatOrderNumber(item.orderNumber) },
   { value: "serviceDate", label: "派車日期", getValue: (item) => item.serviceDate },
   { value: "customer", label: "客戶/路線", getValue: (item) => item.customer },
   { value: "customerCode", label: "客戶代碼", getValue: (item) => item.customerCode },
@@ -252,7 +257,7 @@ const materialSearchOptions: SearchFieldOption<MaterialPriceWithOrder>[] = [
   { value: "material", label: "物料", getValue: (item) => item.material },
   { value: "gasType", label: "氣體種類", getValue: (item) => item.gasType },
   { value: "deliveryLocation", label: "目的地", getValue: (item) => item.deliveryLocation },
-  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => formatOrderNumber(item.orderNumber) },
   { value: "orderServiceDate", label: "訂單派車日期", getValue: (item) => item.matchedOrder?.serviceDate },
   { value: "orderCustomer", label: "訂單客戶", getValue: (item) => item.matchedOrder?.customer },
   { value: "orderTanker", label: "訂單指定槽車", getValue: (item) => item.matchedOrder?.assignedTankerType || item.matchedOrder?.tankerNo },
@@ -331,7 +336,9 @@ export function DashboardPage() {
       importedMaterialPrices.map((material) => ({
         ...material,
         matchedOrder: initialTasks.find(
-          (task) => task.orderNumber && task.orderNumber === material.orderNumber,
+          (task) =>
+            task.orderNumber &&
+            formatOrderNumber(task.orderNumber) === formatOrderNumber(material.orderNumber),
         ),
       })),
     [],
@@ -382,7 +389,7 @@ export function DashboardPage() {
 
     setForm((current) => ({
       ...current,
-      orderNumber: task.orderNumber,
+      orderNumber: formatOrderNumber(task.orderNumber),
       customer: task.customer,
       gasType: task.gasType,
       dispatchTime: task.dispatchTime,
@@ -410,7 +417,7 @@ export function DashboardPage() {
 
     setForm((current) => ({
       ...current,
-      orderNumber: material.orderNumber || current.orderNumber,
+      orderNumber: material.orderNumber ? formatOrderNumber(material.orderNumber) : current.orderNumber,
       customer: material.customerName || current.customer,
       gasType: normalizeGasType(material.gasType || material.material),
     }));
@@ -880,7 +887,9 @@ function CustomerOrderTable({
         <tbody className="divide-y divide-slate-200">
           {items.map((item) => (
             <tr className="align-top" key={item.id}>
-              <td className="px-3 py-3">{item.orderNumber || t("未填")}</td>
+              <td className="px-3 py-3">
+                {item.orderNumber ? formatOrderNumber(item.orderNumber) : t("未填")}
+              </td>
               <td className="px-3 py-3">{item.serviceDate}</td>
               <td className="px-3 py-3">{item.customer}</td>
               <td className="px-3 py-3">{t(item.gasType)}</td>
@@ -1024,7 +1033,7 @@ function MaterialPriceTable({
               <td className="px-3 py-3">{item.paymentTerm}</td>
               <td className="px-3 py-3">{item.monthlyUsage ?? item.estimatedMonthlyUsage ?? ""}</td>
               <td className="px-3 py-3">{item.shipmentQty ?? ""}</td>
-              <td className="px-3 py-3">{item.orderNumber}</td>
+              <td className="px-3 py-3">{formatOrderNumber(item.orderNumber)}</td>
               <td className="px-3 py-3">
                 <span
                   className={`rounded-full px-2 py-1 text-xs font-semibold ${
