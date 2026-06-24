@@ -13,6 +13,15 @@ type GasType = "氮氣 N2" | "氧氣 O2" | "氬氣 Ar" | "二氧化碳 CO2";
 type FixedFrequency = "日" | "每二日" | "週";
 type ScheduleType = "一般排班" | "固定派車";
 type WorkTab = "派車表" | "客戶訂單總表" | "氣體明細表" | "gas物料價格表";
+type TableFilterState = {
+  field: string;
+  keyword: string;
+};
+type SearchFieldOption<T> = {
+  value: string;
+  label: string;
+  getValue: (item: T) => string | number | null | undefined;
+};
 
 type DispatchFormState = {
   scheduleType: ScheduleType;
@@ -68,6 +77,13 @@ const gasOptions: GasType[] = ["氮氣 N2", "氧氣 O2", "氬氣 Ar", "二氧化
 const frequencyOptions: FixedFrequency[] = ["日", "每二日", "週"];
 const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
 const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表", "gas物料價格表"];
+
+const defaultTableFilters: Record<WorkTab, TableFilterState> = {
+  派車表: { field: "orderNumber", keyword: "" },
+  客戶訂單總表: { field: "orderNumber", keyword: "" },
+  氣體明細表: { field: "tankNo", keyword: "" },
+  gas物料價格表: { field: "customerName", keyword: "" },
+};
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
@@ -132,6 +148,24 @@ const normalizeGasType = (value: string): GasType => {
   return "氮氣 N2";
 };
 
+const includesKeyword = (value: string | number | null | undefined, keyword: string) =>
+  String(value ?? "").toLowerCase().includes(keyword.trim().toLowerCase());
+
+const filterItems = <T,>(
+  items: T[],
+  options: SearchFieldOption<T>[],
+  filter: TableFilterState,
+) => {
+  const keyword = filter.keyword.trim();
+
+  if (!keyword) {
+    return items;
+  }
+
+  const option = options.find((item) => item.value === filter.field) || options[0];
+  return items.filter((item) => includesKeyword(option.getValue(item), keyword));
+};
+
 const hydrateImportedTask = (task: (typeof importedDispatchTasks)[number]): DispatchTask => {
   const matchedTanker =
     importedTankers.find((tanker) => (task.assignedTankerType || "").includes(tanker.tankNo)) ||
@@ -179,6 +213,45 @@ const initialFormState: DispatchFormState = {
   generateCount: 7,
 };
 
+const dispatchSearchOptions: SearchFieldOption<DispatchTask>[] = [
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "serviceDate", label: "派車日期", getValue: (item) => item.serviceDate },
+  { value: "customer", label: "客戶/路線", getValue: (item) => item.customer },
+  { value: "gasType", label: "氣體種類", getValue: (item) => item.gasType },
+  { value: "tankerNo", label: "槽車編號", getValue: (item) => item.tankerNo },
+  { value: "vehicle", label: "車輛", getValue: (item) => item.vehicle },
+  { value: "driver", label: "司機", getValue: (item) => item.driver },
+  { value: "remark", label: "備註", getValue: (item) => item.remark },
+];
+
+const customerOrderSearchOptions: SearchFieldOption<DispatchTask>[] = [
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "serviceDate", label: "派車日期", getValue: (item) => item.serviceDate },
+  { value: "customer", label: "客戶/路線", getValue: (item) => item.customer },
+  { value: "customerCode", label: "客戶代碼", getValue: (item) => item.customerCode },
+  { value: "sourceMaterial", label: "物料", getValue: (item) => item.sourceMaterial },
+  { value: "destination", label: "目的地", getValue: (item) => item.destination },
+  { value: "assignedTankerType", label: "指定槽車", getValue: (item) => item.assignedTankerType },
+];
+
+const tankerSearchOptions: SearchFieldOption<(typeof importedTankers)[number]>[] = [
+  { value: "tankNo", label: "槽車編號", getValue: (item) => item.tankNo },
+  { value: "plateNumber", label: "車牌", getValue: (item) => item.plateNumber },
+  { value: "material", label: "氣體種類", getValue: (item) => item.material },
+  { value: "pressureType", label: "槽車壓力", getValue: (item) => getPressureLabel(item.pressureType) },
+  { value: "manufacturer", label: "製造商", getValue: (item) => item.manufacturer },
+  { value: "remark", label: "備註", getValue: (item) => item.remark },
+];
+
+const materialSearchOptions: SearchFieldOption<(typeof importedMaterialPrices)[number]>[] = [
+  { value: "customerCode", label: "客戶代碼", getValue: (item) => item.customerCode },
+  { value: "customerName", label: "客戶", getValue: (item) => item.customerName },
+  { value: "material", label: "物料", getValue: (item) => item.material },
+  { value: "gasType", label: "氣體種類", getValue: (item) => item.gasType },
+  { value: "deliveryLocation", label: "目的地", getValue: (item) => item.deliveryLocation },
+  { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+];
+
 const statusStyles: Record<DispatchStatus, string> = {
   待派車: "bg-amber-50 text-amber-700 ring-amber-200",
   配送中: "bg-cyan-50 text-cyan-700 ring-cyan-200",
@@ -202,6 +275,8 @@ export function DashboardPage() {
     useState<Record<string, VehicleLocation>>(initialVehicleLocations);
   const [activeTab, setActiveTab] = useState<WorkTab>("派車表");
   const [isDataLinked, setIsDataLinked] = useState(true);
+  const [tableFilters, setTableFilters] =
+    useState<Record<WorkTab, TableFilterState>>(defaultTableFilters);
 
   const summary = useMemo(
     () => ({
@@ -228,6 +303,32 @@ export function DashboardPage() {
   );
 
   const trackedLocation = vehicleLocations[trackedVehicle];
+  const filteredTasks = useMemo(
+    () => filterItems(tasks, dispatchSearchOptions, tableFilters["派車表"]),
+    [tableFilters, tasks],
+  );
+
+  const filteredCustomerOrders = useMemo(
+    () => filterItems(initialTasks, customerOrderSearchOptions, tableFilters["客戶訂單總表"]),
+    [tableFilters],
+  );
+
+  const filteredTankers = useMemo(
+    () => filterItems(importedTankers, tankerSearchOptions, tableFilters["氣體明細表"]),
+    [tableFilters],
+  );
+
+  const filteredMaterialPrices = useMemo(
+    () => filterItems(importedMaterialPrices, materialSearchOptions, tableFilters["gas物料價格表"]),
+    [tableFilters],
+  );
+
+  const updateTableFilter = (tab: WorkTab, nextFilter: TableFilterState) => {
+    setTableFilters((current) => ({
+      ...current,
+      [tab]: nextFilter,
+    }));
+  };
 
   const updateTankerSelection = (tankNo: string) => {
     const vehicle = getTankerVehicleLabel(tankNo);
@@ -490,9 +591,14 @@ export function DashboardPage() {
                     {t("匯出 Excel")}
                   </button>
                 </div>
+                <SearchToolbar
+                  filter={tableFilters["派車表"]}
+                  onChange={(nextFilter) => updateTableFilter("派車表", nextFilter)}
+                  options={dispatchSearchOptions}
+                />
                 {trackedLocation ? <VehicleLocationPanel location={trackedLocation} /> : null}
                 <DispatchList
-                  items={tasks}
+                  items={filteredTasks}
                   onRemarkChange={handleRemarkChange}
                   onTrack={handleTrackVehicle}
                 />
@@ -516,24 +622,30 @@ export function DashboardPage() {
 
           {activeTab === "客戶訂單總表" ? (
             <CustomerOrderTable
+              filter={tableFilters["客戶訂單總表"]}
               isDataLinked={isDataLinked}
-              items={initialTasks}
+              items={filteredCustomerOrders}
+              onFilterChange={(nextFilter) => updateTableFilter("客戶訂單總表", nextFilter)}
               onSelect={handleSelectOrder}
             />
           ) : null}
 
           {activeTab === "氣體明細表" ? (
             <TankerTable
+              filter={tableFilters["氣體明細表"]}
               isDataLinked={isDataLinked}
-              items={importedTankers}
+              items={filteredTankers}
+              onFilterChange={(nextFilter) => updateTableFilter("氣體明細表", nextFilter)}
               onSelect={handleSelectTanker}
             />
           ) : null}
 
           {activeTab === "gas物料價格表" ? (
             <MaterialPriceTable
+              filter={tableFilters["gas物料價格表"]}
               isDataLinked={isDataLinked}
-              items={importedMaterialPrices}
+              items={filteredMaterialPrices}
+              onFilterChange={(nextFilter) => updateTableFilter("gas物料價格表", nextFilter)}
               onSelect={handleSelectMaterial}
             />
           ) : null}
@@ -707,11 +819,19 @@ function DispatchList({ items, onRemarkChange, onTrack }: DispatchListProps) {
 
 type CustomerOrderTableProps = {
   items: DispatchTask[];
+  filter: TableFilterState;
   isDataLinked: boolean;
+  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (task: DispatchTask) => void;
 };
 
-function CustomerOrderTable({ isDataLinked, items, onSelect }: CustomerOrderTableProps) {
+function CustomerOrderTable({
+  filter,
+  isDataLinked,
+  items,
+  onFilterChange,
+  onSelect,
+}: CustomerOrderTableProps) {
   const { t } = useLanguage();
 
   return (
@@ -719,6 +839,11 @@ function CustomerOrderTable({ isDataLinked, items, onSelect }: CustomerOrderTabl
       description="顯示匯入的客戶訂單資料，開啟資料連動後可帶入派車表。"
       title="客戶訂單總表"
     >
+      <SearchToolbar
+        filter={filter}
+        onChange={onFilterChange}
+        options={customerOrderSearchOptions}
+      />
       <table className="min-w-[980px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -762,11 +887,13 @@ function CustomerOrderTable({ isDataLinked, items, onSelect }: CustomerOrderTabl
 
 type TankerTableProps = {
   items: typeof importedTankers;
+  filter: TableFilterState;
   isDataLinked: boolean;
+  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (tankNo: string) => void;
 };
 
-function TankerTable({ isDataLinked, items, onSelect }: TankerTableProps) {
+function TankerTable({ filter, isDataLinked, items, onFilterChange, onSelect }: TankerTableProps) {
   const { t } = useLanguage();
 
   return (
@@ -774,6 +901,11 @@ function TankerTable({ isDataLinked, items, onSelect }: TankerTableProps) {
       description="槽車編號可與派車表串聯，選取後會同步高壓車或低壓車標示。"
       title="氣體明細表"
     >
+      <SearchToolbar
+        filter={filter}
+        onChange={onFilterChange}
+        options={tankerSearchOptions}
+      />
       <table className="min-w-[860px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -817,11 +949,19 @@ function TankerTable({ isDataLinked, items, onSelect }: TankerTableProps) {
 
 type MaterialPriceTableProps = {
   items: typeof importedMaterialPrices;
+  filter: TableFilterState;
   isDataLinked: boolean;
+  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (material: (typeof importedMaterialPrices)[number]) => void;
 };
 
-function MaterialPriceTable({ isDataLinked, items, onSelect }: MaterialPriceTableProps) {
+function MaterialPriceTable({
+  filter,
+  isDataLinked,
+  items,
+  onFilterChange,
+  onSelect,
+}: MaterialPriceTableProps) {
   const { t } = useLanguage();
 
   return (
@@ -829,6 +969,11 @@ function MaterialPriceTable({ isDataLinked, items, onSelect }: MaterialPriceTabl
       description="物料價格資料可帶入客戶、訂單與氣體種類，後續可再串接正式報價資料庫。"
       title="gas物料價格表"
     >
+      <SearchToolbar
+        filter={filter}
+        onChange={onFilterChange}
+        options={materialSearchOptions}
+      />
       <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -888,13 +1033,60 @@ type DataTableShellProps = {
   children: ReactNode;
 };
 
+type SearchToolbarProps<T> = {
+  filter: TableFilterState;
+  options: SearchFieldOption<T>[];
+  onChange: (nextFilter: TableFilterState) => void;
+};
+
+function SearchToolbar<T>({ filter, onChange, options }: SearchToolbarProps<T>) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
+      <label className="grid gap-1 text-sm font-medium text-slate-700 sm:w-52">
+        {t("搜尋欄位")}
+        <select
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+          onChange={(event) => onChange({ ...filter, field: event.target.value })}
+          value={filter.field}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {t(option.label)}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="grid flex-1 gap-1 text-sm font-medium text-slate-700">
+        {t("搜尋")}
+        <input
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+          onChange={(event) => onChange({ ...filter, keyword: event.target.value })}
+          placeholder={t("輸入關鍵字")}
+          value={filter.keyword}
+        />
+      </label>
+
+      <button
+        className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 sm:self-end"
+        onClick={() => onChange({ ...filter, keyword: "" })}
+        type="button"
+      >
+        {t("清除")}
+      </button>
+    </div>
+  );
+}
+
 function DataTableShell({ children, description, title }: DataTableShellProps) {
   const { t } = useLanguage();
 
   return (
     <section>
       <PanelHeader description={description} title={title} />
-      <div className="overflow-x-auto p-5">{children}</div>
+      <div className="overflow-x-auto">{children}</div>
     </section>
   );
 }

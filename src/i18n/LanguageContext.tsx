@@ -63,6 +63,10 @@ const translations: Record<string, string> = {
   "氣體明細表": "Gas Tanker Details",
   "gas物料價格表": "Gas Material Prices",
   "資料連動": "Link Data",
+  "搜尋欄位": "Search Field",
+  "搜尋": "Search",
+  "輸入關鍵字": "Enter keyword",
+  "清除": "Clear",
   "顯示匯入的客戶訂單資料，開啟資料連動後可帶入派車表。":
     "Shows imported customer orders. When data linking is enabled, rows can be applied to the dispatch sheet.",
   "槽車編號可與派車表串聯，選取後會同步高壓車或低壓車標示。":
