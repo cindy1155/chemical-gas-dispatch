@@ -116,10 +116,29 @@
       }
 
       .auth-panel {
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 32px 20px;
+      }
+
+      .language-toggle {
+        right: 20px;
+        top: 20px;
+        width: auto;
+        border: 1px solid var(--slate-300);
+        background: white;
+        color: var(--slate-700);
+        padding: 0 12px;
+      }
+
+      .auth-panel > .language-toggle {
+        position: absolute;
+      }
+
+      .topbar .language-toggle {
+        position: static;
       }
 
       .auth-wrap {
@@ -534,6 +553,7 @@
       </section>
 
       <section class="auth-panel">
+        <button class="language-toggle" id="authLanguageToggle" type="button">語言：中文</button>
         <div class="auth-wrap">
           <div class="mobile-title">
             <p class="eyebrow">Chemical Gas Dispatch System</p>
@@ -580,9 +600,9 @@
               <label>
                 角色
                 <select id="registerRole">
-                  <option value="dispatcher">調度員</option>
-                  <option value="driver">司機</option>
-                  <option value="admin">管理員</option>
+                  <option data-label="調度員" value="dispatcher">調度員</option>
+                  <option data-label="司機" value="driver">司機</option>
+                  <option data-label="管理員" value="admin">管理員</option>
                 </select>
               </label>
               <label>
@@ -613,6 +633,7 @@
             <h1>管理員儀表板</h1>
           </div>
           <button class="logout" id="logoutButton">登出</button>
+          <button class="language-toggle" id="dashboardLanguageToggle" type="button">語言：中文</button>
         </div>
       </header>
 
@@ -642,9 +663,13 @@
             <label>
               登錄類型
               <select id="scheduleType">
-                <option>一般排班</option>
-                <option>固定派車</option>
+                <option value="一般排班">一般排班</option>
+                <option value="固定派車">固定派車</option>
               </select>
+            </label>
+            <label>
+              派車日期
+              <input id="scheduleDate" type="date" />
             </label>
             <label>
               派車時間
@@ -669,10 +694,10 @@
             <label>
               氣體種類
               <select id="scheduleGas">
-                <option>氮氣 N2</option>
-                <option>氧氣 O2</option>
-                <option>氬氣 Ar</option>
-                <option>二氧化碳 CO2</option>
+                <option value="氮氣 N2">氮氣 N2</option>
+                <option value="氧氣 O2">氧氣 O2</option>
+                <option value="氬氣 Ar">氬氣 Ar</option>
+                <option value="二氧化碳 CO2">二氧化碳 CO2</option>
               </select>
             </label>
             <label>
@@ -686,12 +711,16 @@
             <label id="frequencyField" style="display: none">
               固定頻率
               <select id="scheduleFrequency">
-                <option>日</option>
-                <option>每二日</option>
-                <option>週</option>
+                <option value="日">日</option>
+                <option value="每二日">每二日</option>
+                <option value="週">週</option>
               </select>
             </label>
-            <p class="error" id="scheduleError">請完整填寫派車時間、出廠時間、指定到達時間、客戶、車輛與司機。</p>
+            <label id="generateCountField" style="display: none">
+              產生明細筆數
+              <input id="scheduleGenerateCount" max="31" min="1" type="number" value="7" />
+            </label>
+            <p class="error" id="scheduleError">請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、車輛與司機。</p>
             <button type="submit">新增派車</button>
           </form>
         </aside>
@@ -711,9 +740,12 @@
       const scheduleError = document.querySelector("#scheduleError");
       const scheduleType = document.querySelector("#scheduleType");
       const frequencyField = document.querySelector("#frequencyField");
+      const generateCountField = document.querySelector("#generateCountField");
       const taskList = document.querySelector("#taskList");
       const locationPanel = document.querySelector("#locationPanel");
       const exportExcelButton = document.querySelector("#exportExcelButton");
+      const authLanguageToggle = document.querySelector("#authLanguageToggle");
+      const dashboardLanguageToggle = document.querySelector("#dashboardLanguageToggle");
       const metrics = document.querySelector("#metrics");
       const gasMetrics = document.querySelector("#gasMetrics");
 
@@ -725,6 +757,186 @@
       };
 
       const gasOptions = Object.keys(gasTripLimits);
+      const translations = {
+        "語言": "Language",
+        "化學氣體運輸與派車排班管理": "Chemical Gas Transport and Dispatch Scheduling",
+        "支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。":
+          "Supports cross-platform operations, dispatch collaboration, and customizable admin dashboards for quick visibility into tasks, fleet, and inventory.",
+        "司機與主管可在手機、平板與桌機穩定操作。":
+          "Drivers and managers can work reliably on phones, tablets, and desktops.",
+        "後續可用 JSON 儲存每位管理員的介面偏好。":
+          "Admin interface preferences can later be stored with JSON.",
+        "化學氣體派車排班系統": "Chemical Gas Dispatch System",
+        "登入管理平台": "Sign In to Admin Platform",
+        "請使用公司帳號登入，後續可依角色顯示排班、車隊與庫存模組。":
+          "Sign in with your company account. Scheduling, fleet, and inventory modules will later be shown by role.",
+        "帳號": "Account",
+        "密碼": "Password",
+        "登入": "Sign In",
+        "尚未有帳號？": "No account yet?",
+        "註冊帳號": "Create Account",
+        "姓名": "Name",
+        "角色": "Role",
+        "確認密碼": "Confirm Password",
+        "建立帳號": "Create Account",
+        "已經有帳號？": "Already have an account?",
+        "回到登入": "Back to Sign In",
+        "管理員儀表板": "Admin Dashboard",
+        "登出": "Sign Out",
+        "今日派車": "Today's Dispatches",
+        "固定派車": "Fixed Dispatches",
+        "待派車": "Pending",
+        "配送中": "In Transit",
+        "已完成": "Completed",
+        "每日派車列表": "Daily Dispatch List",
+        "一般排班與每日固定派車會顯示在同一份每日派車列表中。":
+          "General schedules and fixed dispatches appear in the same daily dispatch list.",
+        "可追蹤車輛即時位置，並將目前派車表匯出為 Excel。":
+          "Track vehicle location in real time and export the current dispatch list to Excel.",
+        "匯出 Excel": "Export Excel",
+        "車輛即時定位": "Live Vehicle Location",
+        "在 Google Maps 開啟": "Open in Google Maps",
+        "新增派車": "Add Dispatch",
+        "可登錄一般排班或每日固定派車，固定派車需設定客戶固定頻率。":
+          "Add a general schedule or fixed dispatch with a customer frequency.",
+        "登錄類型": "Schedule Type",
+        "一般排班": "General Schedule",
+        "派車日期": "Dispatch Date",
+        "派車時間": "Dispatch Time",
+        "出廠時間": "Departure Time",
+        "指定到達時間": "Required Arrival Time",
+        "訂單編號": "Order Number",
+        "客戶 / 目的地": "Customer / Destination",
+        "氣體種類": "Gas Type",
+        "車輛": "Vehicle",
+        "司機": "Driver",
+        "固定頻率": "Fixed Frequency",
+        "產生明細筆數": "Number of Details",
+        "產生固定派車明細": "Generate Fixed Dispatch Details",
+        "日": "Daily",
+        "每二日": "Every 2 Days",
+        "週": "Weekly",
+        "追蹤定位": "Track Location",
+        "出廠": "Depart",
+        "到達": "Arrive",
+        "未填": "Not Filled",
+        "固定路線：新竹園區每日補氣": "Fixed route: Hsinchu Science Park daily refill",
+        "新竹科學園區 A 廠": "Hsinchu Science Park Plant A",
+        "台中精密製造 B 廠": "Taichung Precision Manufacturing Plant B",
+        "桃園電子材料 C 廠": "Taoyuan Electronic Materials Plant C",
+        "王司機": "Driver Wang",
+        "陳司機": "Driver Chen",
+        "林司機": "Driver Lin",
+        "車輛 A-102": "Vehicle A-102",
+        "車輛 B-216": "Vehicle B-216",
+        "車輛 C-031": "Vehicle C-031",
+        "氮氣 N2": "Nitrogen N2",
+        "氧氣 O2": "Oxygen O2",
+        "氬氣 Ar": "Argon Ar",
+        "二氧化碳 CO2": "Carbon Dioxide CO2",
+        "已達今日上限": "Daily limit reached",
+        "今日可新增": "Available today",
+        "趟": "trips",
+      };
+      const reverseTranslations = Object.fromEntries(
+        Object.entries(translations).map(([zh, en]) => [en, zh]),
+      );
+      let language = localStorage.getItem("app-language") === "en" ? "en" : "zh";
+
+      function tr(text) {
+        return language === "en" ? translations[text] || text : reverseTranslations[text] || text;
+      }
+
+      function updateLanguageButtons() {
+        const label = `${tr("語言")}：${language === "zh" ? "中文" : "English"}`;
+        authLanguageToggle.textContent = label;
+        dashboardLanguageToggle.textContent = label;
+      }
+
+      function toggleLanguage() {
+        language = language === "zh" ? "en" : "zh";
+        localStorage.setItem("app-language", language);
+        applyStaticTranslations();
+        renderDashboard();
+      }
+
+      function setText(selector, text) {
+        const element = document.querySelector(selector);
+        if (element) {
+          element.textContent = tr(text);
+        }
+      }
+
+      function setLabelText(selector, text) {
+        const element = document.querySelector(selector);
+        if (element && element.childNodes[0]) {
+          element.childNodes[0].nodeValue = `${tr(text)} `;
+        }
+      }
+
+      function translateSelectOptions(selector) {
+        document.querySelectorAll(`${selector} option`).forEach((option) => {
+          option.textContent = tr(option.dataset.label || option.value || option.textContent);
+        });
+      }
+
+      function applyStaticTranslations() {
+        updateLanguageButtons();
+        setText(".hero-title", "化學氣體運輸與派車排班管理");
+        setText(".hero-copy", "支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。");
+        setText("#loginCard h2", "登入管理平台");
+        setText("#registerCard h2", "註冊帳號");
+        setText("#logoutButton", "登出");
+        setText(".topbar h1", "管理員儀表板");
+        setText(".panel .panel-header h2", "每日派車列表");
+        setText("aside .panel-header h2", "新增派車");
+        setText("#exportExcelButton", "匯出 Excel");
+        setLabelText("#loginForm label:nth-child(1)", "帳號");
+        setLabelText("#loginForm label:nth-child(2)", "密碼");
+        setLabelText("#registerForm label:nth-child(1)", "姓名");
+        setLabelText("#registerForm label:nth-child(2)", "帳號");
+        setLabelText("#registerForm label:nth-child(3)", "角色");
+        setLabelText("#registerForm label:nth-child(4)", "密碼");
+        setLabelText("#registerForm label:nth-child(5)", "確認密碼");
+        setLabelText("#scheduleForm label:nth-child(1)", "登錄類型");
+        setLabelText("#scheduleForm label:nth-child(2)", "派車日期");
+        setLabelText("#scheduleForm label:nth-child(3)", "派車時間");
+        setLabelText("#scheduleForm label:nth-child(4)", "出廠時間");
+        setLabelText("#scheduleForm label:nth-child(5)", "指定到達時間");
+        setLabelText("#scheduleForm label:nth-child(6)", "訂單編號");
+        setLabelText("#scheduleForm label:nth-child(7)", "客戶 / 目的地");
+        setLabelText("#scheduleForm label:nth-child(8)", "氣體種類");
+        setLabelText("#scheduleForm label:nth-child(9)", "車輛");
+        setLabelText("#scheduleForm label:nth-child(10)", "司機");
+        setLabelText("#frequencyField", "固定頻率");
+        setLabelText("#generateCountField", "產生明細筆數");
+        translateSelectOptions("#registerRole");
+        translateSelectOptions("#scheduleType");
+        translateSelectOptions("#scheduleGas");
+        translateSelectOptions("#scheduleFrequency");
+      }
+
+      function getTodayDate() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function addDays(date, days) {
+        const nextDate = new Date(`${date}T00:00:00`);
+        nextDate.setDate(nextDate.getDate() + days);
+        return nextDate.toISOString().slice(0, 10);
+      }
+
+      function getFrequencyStepDays(frequency) {
+        if (frequency === "每二日") {
+          return 2;
+        }
+
+        if (frequency === "週") {
+          return 7;
+        }
+
+        return 1;
+      }
 
       const vehicleLocations = {
         "車輛 A-102": {
@@ -759,6 +971,7 @@
         {
           id: "DSP-001",
           scheduleType: "一般排班",
+          serviceDate: getTodayDate(),
           orderNumber: "SO-20260624-001",
           dispatchTime: "08:30",
           departureTime: "09:00",
@@ -768,11 +981,13 @@
           vehicle: "車輛 A-102",
           driver: "王司機",
           frequency: "日",
+          generateCount: 1,
           status: "配送中",
         },
         {
           id: "FIX-001",
           scheduleType: "固定派車",
+          serviceDate: getTodayDate(),
           orderNumber: "SO-FIX-N2-001",
           dispatchTime: "08:00",
           departureTime: "08:30",
@@ -782,11 +997,13 @@
           vehicle: "車輛 A-102",
           driver: "王司機",
           frequency: "日",
+          generateCount: 1,
           status: "待派車",
         },
         {
           id: "DSP-002",
           scheduleType: "一般排班",
+          serviceDate: getTodayDate(),
           orderNumber: "SO-20260624-002",
           dispatchTime: "11:00",
           departureTime: "11:30",
@@ -796,11 +1013,13 @@
           vehicle: "車輛 B-216",
           driver: "陳司機",
           frequency: "日",
+          generateCount: 1,
           status: "待派車",
         },
         {
           id: "DSP-003",
           scheduleType: "一般排班",
+          serviceDate: getTodayDate(),
           orderNumber: "SO-20260624-003",
           dispatchTime: "13:30",
           departureTime: "14:00",
@@ -810,6 +1029,7 @@
           vehicle: "車輛 C-031",
           driver: "林司機",
           frequency: "日",
+          generateCount: 1,
           status: "已完成",
         },
       ];
@@ -822,10 +1042,10 @@
 
       function renderDashboard() {
         const summary = [
-          ["今日派車", tasks.length],
-          ["固定派車", tasks.filter((task) => task.scheduleType === "固定派車").length],
-          ["待派車", tasks.filter((task) => task.status === "待派車").length],
-          ["配送中", tasks.filter((task) => task.status === "配送中").length],
+          [tr("今日派車"), tasks.length],
+          [tr("固定派車"), tasks.filter((task) => task.scheduleType === "固定派車").length],
+          [tr("待派車"), tasks.filter((task) => task.status === "待派車" && task.serviceDate === getTodayDate()).length],
+          [tr("配送中"), tasks.filter((task) => task.status === "配送中").length],
         ];
 
         metrics.innerHTML = summary
@@ -841,15 +1061,15 @@
 
         gasMetrics.innerHTML = gasOptions
           .map((gasType) => {
-            const used = tasks.filter((task) => task.gasType === gasType).length;
+            const used = tasks.filter((task) => task.gasType === gasType && task.serviceDate === getTodayDate()).length;
             const limit = gasTripLimits[gasType];
             const isFull = used >= limit;
 
             return `
               <article class="metric-card ${isFull ? "limit-full" : ""}">
-                <span>${gasType}</span>
-                <strong>${used} / ${limit} 趟</strong>
-                <small>${isFull ? "已達今日上限" : "今日可新增"}</small>
+                <span>${tr(gasType)}</span>
+                <strong>${used} / ${limit} ${tr("趟")}</strong>
+                <small>${isFull ? tr("已達今日上限") : tr("今日可新增")}</small>
               </article>
             `;
           })
@@ -865,11 +1085,11 @@
           ? `
               <section class="location-panel">
                 <div>
-                  <p class="eyebrow">車輛即時定位</p>
-                  <h3>${location.vehicle}</h3>
+                  <p class="eyebrow">${tr("車輛即時定位")}</p>
+                  <h3>${tr(location.vehicle)}</h3>
                   <p>${location.area} / ${location.address}</p>
                   <p>座標：${location.latitude}, ${location.longitude} / 更新：${location.updatedAt}</p>
-                  <p><a class="track-button" href="${mapsUrl}" target="_blank" rel="noreferrer">在 Google Maps 開啟</a></p>
+                  <p><a class="track-button" href="${mapsUrl}" target="_blank" rel="noreferrer">${tr("在 Google Maps 開啟")}</a></p>
                 </div>
                 <div class="map-preview">
                   <iframe
@@ -889,19 +1109,20 @@
               <article class="task-row">
                 <div>
                   <p class="task-id">${task.id}</p>
+                  <p class="task-id">${task.serviceDate}</p>
                   <p class="task-time">${task.dispatchTime}</p>
-                  <p class="task-subtime">出廠 ${task.departureTime}<br />到達 ${task.arrivalTime}</p>
+                  <p class="task-subtime">${tr("出廠")} ${task.departureTime}<br />${tr("到達")} ${task.arrivalTime}</p>
                 </div>
                 <div>
-                  <h3>${task.customer}</h3>
-                  <p>訂單編號：${task.orderNumber || "未填"}</p>
-                  <p>${task.gasType} / ${task.vehicle} / ${task.driver}</p>
+                  <h3>${tr(task.customer)}</h3>
+                  <p>${tr("訂單編號")}：${task.orderNumber || tr("未填")}</p>
+                  <p>${tr(task.gasType)} / ${tr(task.vehicle)} / ${tr(task.driver)}</p>
                 </div>
                 <div>
-                  <span class="status ${task.scheduleType === "固定派車" ? "status-fixed" : "status-normal"}">${task.scheduleType}</span>
-                  ${task.scheduleType === "固定派車" ? `<span class="status status-normal">${task.frequency}</span>` : ""}
-                  <span class="status ${statusClass[task.status]}">${task.status}</span>
-                  <button class="track-button" data-track-vehicle="${task.vehicle}" type="button">追蹤定位</button>
+                  <span class="status ${task.scheduleType === "固定派車" ? "status-fixed" : "status-normal"}">${tr(task.scheduleType)}</span>
+                  ${task.scheduleType === "固定派車" ? `<span class="status status-normal">${tr(task.frequency)}</span>` : ""}
+                  <span class="status ${statusClass[task.status]}">${tr(task.status)}</span>
+                  <button class="track-button" data-track-vehicle="${task.vehicle}" type="button">${tr("追蹤定位")}</button>
                 </div>
               </article>
             `,
@@ -926,12 +1147,12 @@
         });
       }
 
-      function getGasLimitError(gasType) {
-        const usedTrips = tasks.filter((task) => task.gasType === gasType).length;
+      function getGasLimitError(gasType, serviceDate, additionalTrips = 1) {
+        const usedTrips = tasks.filter((task) => task.gasType === gasType && task.serviceDate === serviceDate).length;
         const maxTrips = gasTripLimits[gasType];
 
-        if (usedTrips >= maxTrips) {
-          return `${gasType} 今日已達 ${maxTrips} 趟上限，請調整氣體種類或改到其他日期。`;
+        if (usedTrips + additionalTrips > maxTrips) {
+          return `${serviceDate} ${gasType} 已超過 ${maxTrips} 趟上限，請調整氣體種類、日期或產生筆數。`;
         }
 
         return "";
@@ -950,6 +1171,7 @@
         const headers = [
           "任務編號",
           "登錄類型",
+          "派車日期",
           "訂單編號",
           "派車時間",
           "出廠時間",
@@ -964,6 +1186,7 @@
         const rows = tasks.map((task) => [
           task.id,
           task.scheduleType,
+          task.serviceDate,
           task.orderNumber || "未填",
           task.dispatchTime,
           task.departureTime,
@@ -998,6 +1221,8 @@
       }
 
       exportExcelButton.addEventListener("click", exportDispatchExcel);
+      authLanguageToggle.addEventListener("click", toggleLanguage);
+      dashboardLanguageToggle.addEventListener("click", toggleLanguage);
 
       document.querySelector("#showRegister").addEventListener("click", () => {
         loginCard.style.display = "none";
@@ -1012,6 +1237,10 @@
       scheduleType.addEventListener("change", () => {
         frequencyField.style.display =
           scheduleType.value === "固定派車" ? "grid" : "none";
+        generateCountField.style.display =
+          scheduleType.value === "固定派車" ? "grid" : "none";
+        scheduleForm.querySelector("button[type='submit']").textContent =
+          scheduleType.value === "固定派車" ? tr("產生固定派車明細") : tr("新增派車");
       });
 
       loginForm.addEventListener("submit", (event) => {
@@ -1063,6 +1292,7 @@
       scheduleForm.addEventListener("submit", (event) => {
         event.preventDefault();
         const dispatchTime = document.querySelector("#scheduleTime").value.trim();
+        const serviceDate = document.querySelector("#scheduleDate").value.trim();
         const departureTime = document.querySelector("#scheduleDepartureTime").value.trim();
         const arrivalTime = document.querySelector("#scheduleArrivalTime").value.trim();
         const orderNumber = document.querySelector("#scheduleOrderNumber").value.trim();
@@ -1072,14 +1302,36 @@
         const driver = document.querySelector("#scheduleDriver").value.trim();
         const type = document.querySelector("#scheduleType").value;
         const frequency = document.querySelector("#scheduleFrequency").value;
+        const generateCount = Number(document.querySelector("#scheduleGenerateCount").value || 1);
 
-        if (!dispatchTime || !departureTime || !arrivalTime || !customer || !vehicle || !driver) {
-          scheduleError.textContent = "請完整填寫派車時間、出廠時間、指定到達時間、客戶、車輛與司機。";
+        if (!serviceDate || !dispatchTime || !departureTime || !arrivalTime || !customer || !vehicle || !driver) {
+          scheduleError.textContent = "請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、車輛與司機。";
           scheduleError.style.display = "block";
           return;
         }
 
-        const limitError = getGasLimitError(gasType);
+        const generatedTasks = buildDispatchTasks({
+          serviceDate,
+          type,
+          orderNumber,
+          dispatchTime,
+          departureTime,
+          arrivalTime,
+          customer,
+          gasType,
+          vehicle,
+          driver,
+          frequency,
+          generateCount,
+        });
+        const tripsByDate = generatedTasks.reduce((counts, task) => {
+          counts[task.serviceDate] = (counts[task.serviceDate] || 0) + 1;
+          return counts;
+        }, {});
+        const limitError = Object.entries(tripsByDate)
+          .map(([date, count]) => getGasLimitError(gasType, date, count))
+          .find(Boolean);
+
         if (limitError) {
           scheduleError.textContent = limitError;
           scheduleError.style.display = "block";
@@ -1087,27 +1339,51 @@
         }
 
         scheduleError.style.display = "none";
-        tasks = [
-          {
-            id: `${type === "固定派車" ? "FIX" : "DSP"}-${String(tasks.length + 1).padStart(3, "0")}`,
-            scheduleType: type,
-            orderNumber,
-            dispatchTime,
-            departureTime,
-            arrivalTime,
-            customer,
-            gasType,
-            vehicle,
-            driver,
-            frequency,
-            status: "待派車",
-          },
-          ...tasks,
-        ];
+        tasks = [...generatedTasks, ...tasks];
         scheduleForm.reset();
         frequencyField.style.display = "none";
+        generateCountField.style.display = "none";
+        document.querySelector("#scheduleDate").value = getTodayDate();
+        document.querySelector("#scheduleGenerateCount").value = "7";
         renderDashboard();
       });
+
+      function buildDispatchTasks(form) {
+        const amount = form.type === "固定派車" ? form.generateCount : 1;
+        const safeAmount = Math.max(1, Math.min(amount, 31));
+        const stepDays = getFrequencyStepDays(form.frequency);
+
+        return Array.from({ length: safeAmount }, (_, index) => {
+          const idPrefix = form.type === "固定派車" ? "FIX" : "DSP";
+          const serviceDate =
+            form.type === "固定派車"
+              ? addDays(form.serviceDate, index * stepDays)
+              : form.serviceDate;
+
+          return {
+            id: `${idPrefix}-${String(tasks.length + index + 1).padStart(3, "0")}`,
+            scheduleType: form.type,
+            serviceDate,
+            orderNumber:
+              form.type === "固定派車" && form.orderNumber
+                ? `${form.orderNumber}-${String(index + 1).padStart(2, "0")}`
+                : form.orderNumber,
+            dispatchTime: form.dispatchTime,
+            departureTime: form.departureTime,
+            arrivalTime: form.arrivalTime,
+            customer: form.customer,
+            gasType: form.gasType,
+            vehicle: form.vehicle,
+            driver: form.driver,
+            frequency: form.frequency,
+            generateCount: 1,
+            status: "待派車",
+          };
+        });
+      }
+
+      document.querySelector("#scheduleDate").value = getTodayDate();
+      applyStaticTranslations();
 
       window.setInterval(() => {
         const location = vehicleLocations[trackedVehicle];

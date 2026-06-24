@@ -1,0 +1,159 @@
+import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+
+type Language = "zh" | "en";
+
+type LanguageContextValue = {
+  language: Language;
+  toggleLanguage: () => void;
+  t: (text: string) => string;
+};
+
+const translations: Record<string, string> = {
+  "化學氣體運輸與派車排班管理": "Chemical Gas Transport and Dispatch Scheduling",
+  "支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。":
+    "Supports cross-platform operations, dispatch collaboration, and customizable admin dashboards for quick visibility into tasks, fleet, and inventory.",
+  "司機與主管可在手機、平板與桌機穩定操作。":
+    "Drivers and managers can work reliably on phones, tablets, and desktops.",
+  "後續可用 JSON 儲存每位管理員的介面偏好。":
+    "Admin interface preferences can later be stored with JSON.",
+  "化學氣體派車排班系統": "Chemical Gas Dispatch System",
+  "登入管理平台": "Sign In to Admin Platform",
+  "請使用公司帳號登入，後續可依角色顯示排班、車隊與庫存模組。":
+    "Sign in with your company account. Scheduling, fleet, and inventory modules will later be shown by role.",
+  "帳號": "Account",
+  "密碼": "Password",
+  "請輸入帳號與密碼。": "Please enter account and password.",
+  "登入": "Sign In",
+  "尚未有帳號？": "No account yet?",
+  "註冊帳號": "Create Account",
+  "例如 dispatcher01": "e.g. dispatcher01",
+  "輸入密碼": "Enter password",
+  "建立管理平台帳號。實際審核與權限分配將於後端 RBAC 完成後串接。":
+    "Create an admin platform account. Review and role permissions will be connected after backend RBAC is ready.",
+  "姓名": "Name",
+  "角色": "Role",
+  "確認密碼": "Confirm Password",
+  "請完整填寫註冊資料。": "Please complete the registration form.",
+  "請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、車輛與司機。":
+    "Please complete date, dispatch time, departure time, required arrival time, customer, vehicle, and driver.",
+  "密碼至少需要 8 個字元。": "Password must be at least 8 characters.",
+  "兩次輸入的密碼不一致。": "The two passwords do not match.",
+  "建立帳號": "Create Account",
+  "已經有帳號？": "Already have an account?",
+  "回到登入": "Back to Sign In",
+  "例如 王小明": "e.g. Alex Wang",
+  "例如 driver01": "e.g. driver01",
+  "調度員": "Dispatcher",
+  "司機": "Driver",
+  "管理員": "Admin",
+  "至少 8 個字元": "At least 8 characters",
+  "再次輸入密碼": "Enter password again",
+  "管理員儀表板": "Admin Dashboard",
+  "登出": "Sign Out",
+  "今日派車": "Today's Dispatches",
+  "固定派車": "Fixed Dispatches",
+  "待派車": "Pending",
+  "配送中": "In Transit",
+  "已完成": "Completed",
+  "每日派車列表": "Daily Dispatch List",
+  "一般排班與固定頻率派車明細會顯示在同一份每日派車列表中。":
+    "General schedules and generated fixed-frequency details appear in the same daily dispatch list.",
+  "可追蹤車輛即時位置，並將目前派車表匯出為 Excel。":
+    "Track vehicle location in real time and export the current dispatch list to Excel.",
+  "匯出 Excel": "Export Excel",
+  "車輛即時定位": "Live Vehicle Location",
+  "在 Google Maps 開啟": "Open in Google Maps",
+  "新增派車": "Add Dispatch",
+  "可登錄一般排班或固定頻率派車，固定派車會一次產生多筆明細。":
+    "Add a general schedule or fixed-frequency dispatch. Fixed dispatches generate multiple detail rows at once.",
+  "登錄類型": "Schedule Type",
+  "一般排班": "General Schedule",
+  "派車日期": "Dispatch Date",
+  "派車時間": "Dispatch Time",
+  "出廠時間": "Departure Time",
+  "指定到達時間": "Required Arrival Time",
+  "訂單編號": "Order Number",
+  "客戶 / 路線": "Customer / Route",
+  "氣體種類": "Gas Type",
+  "車輛": "Vehicle",
+  "固定頻率": "Fixed Frequency",
+  "產生明細筆數": "Number of Details",
+  "產生固定派車明細": "Generate Fixed Dispatch Details",
+  "日": "Daily",
+  "每二日": "Every 2 Days",
+  "週": "Weekly",
+  "追蹤定位": "Track Location",
+  "未填": "Not Filled",
+  "任務編號": "Task ID",
+  "派車": "Dispatch",
+  "出廠": "Depart",
+  "到達": "Arrive",
+  "固定路線：新竹園區每日補氣": "Fixed route: Hsinchu Science Park daily refill",
+  "新竹科學園區 A 廠": "Hsinchu Science Park Plant A",
+  "台中精密製造 B 廠": "Taichung Precision Manufacturing Plant B",
+  "桃園電子材料 C 廠": "Taoyuan Electronic Materials Plant C",
+  "王司機": "Driver Wang",
+  "陳司機": "Driver Chen",
+  "林司機": "Driver Lin",
+  "車輛 A-102": "Vehicle A-102",
+  "車輛 B-216": "Vehicle B-216",
+  "車輛 C-031": "Vehicle C-031",
+  "氮氣 N2": "Nitrogen N2",
+  "氧氣 O2": "Oxygen O2",
+  "氬氣 Ar": "Argon Ar",
+  "二氧化碳 CO2": "Carbon Dioxide CO2",
+  "已達今日上限": "Daily limit reached",
+  "今日可新增": "Available today",
+  "趟": "trips",
+  "語言": "Language",
+};
+
+const LanguageContext = createContext<LanguageContextValue | null>(null);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>(() => {
+    const savedLanguage = window.localStorage.getItem("app-language");
+    return savedLanguage === "en" ? "en" : "zh";
+  });
+
+  const value = useMemo<LanguageContextValue>(
+    () => ({
+      language,
+      toggleLanguage: () => {
+        setLanguage((current) => {
+          const nextLanguage = current === "zh" ? "en" : "zh";
+          window.localStorage.setItem("app-language", nextLanguage);
+          return nextLanguage;
+        });
+      },
+      t: (text) => (language === "en" ? translations[text] || text : text),
+    }),
+    [language],
+  );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+
+  if (!context) {
+    throw new Error("useLanguage must be used inside LanguageProvider");
+  }
+
+  return context;
+}
+
+export function LanguageToggle() {
+  const { language, toggleLanguage, t } = useLanguage();
+
+  return (
+    <button
+      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+      onClick={toggleLanguage}
+      type="button"
+    >
+      {t("語言")}：{language === "zh" ? "中文" : "English"}
+    </button>
+  );
+}

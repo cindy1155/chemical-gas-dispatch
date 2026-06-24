@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
+import { LanguageToggle, useLanguage } from "../i18n/LanguageContext";
 
 type AuthLayoutProps = {
   children: ReactNode;
 };
 
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const { t } = useLanguage();
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
@@ -14,26 +17,31 @@ export function AuthLayout({ children }: AuthLayoutProps) {
               Chemical Gas Dispatch System
             </p>
             <h1 className="mt-5 max-w-xl text-4xl font-semibold leading-tight">
-              化學氣體運輸與派車排班管理
+              {t("化學氣體運輸與派車排班管理")}
             </h1>
             <p className="mt-5 max-w-lg text-base leading-7 text-slate-300">
-              支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。
+              {t(
+                "支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。",
+              )}
             </p>
           </div>
 
           <div className="grid gap-4 text-sm text-slate-300">
             <div className="rounded-lg border border-white/10 bg-white/5 p-4">
               <p className="font-medium text-white">RWD-first</p>
-              <p className="mt-1">司機與主管可在手機、平板與桌機穩定操作。</p>
+              <p className="mt-1">{t("司機與主管可在手機、平板與桌機穩定操作。")}</p>
             </div>
             <div className="rounded-lg border border-white/10 bg-white/5 p-4">
               <p className="font-medium text-white">Modular dashboard</p>
-              <p className="mt-1">後續可用 JSON 儲存每位管理員的介面偏好。</p>
+              <p className="mt-1">{t("後續可用 JSON 儲存每位管理員的介面偏好。")}</p>
             </div>
           </div>
         </section>
 
-        <section className="flex items-center justify-center px-5 py-8 sm:px-8">
+        <section className="relative flex items-center justify-center px-5 py-8 sm:px-8">
+          <div className="absolute right-5 top-5 sm:right-8">
+            <LanguageToggle />
+          </div>
           {children}
         </section>
       </div>

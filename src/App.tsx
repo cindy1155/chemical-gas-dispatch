@@ -1,5 +1,10 @@
 import { AppRouter } from "./routes/AppRouter";
+import { LanguageProvider } from "./i18n/LanguageContext";
 
 export default function App() {
-  return <AppRouter />;
+  return (
+    <LanguageProvider>
+      <AppRouter />
+    </LanguageProvider>
+  );
 }
