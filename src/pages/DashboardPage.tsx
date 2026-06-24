@@ -1,6 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LanguageToggle, useLanguage } from "../i18n/LanguageContext";
+import {
+  importedDispatchTasks,
+  importedDrivers,
+  importedMaterialPrices,
+  importedTankers,
+} from "../data/importedData";
 
 type DispatchStatus = "待派車" | "配送中" | "已完成";
 type GasType = "氮氣 N2" | "氧氣 O2" | "氬氣 Ar" | "二氧化碳 CO2";
@@ -25,6 +31,16 @@ type DispatchFormState = {
 type DispatchTask = DispatchFormState & {
   id: string;
   status: DispatchStatus;
+  sourceMaterial?: string;
+  customerCode?: string;
+  shipTo?: string;
+  destination?: string;
+  quantity?: number | null;
+  deliveryWindow?: string;
+  assignedTankerType?: string;
+  remark?: string;
+  contractPrice?: number | null;
+  shipmentQty?: number | null;
 };
 
 type VehicleLocation = {
@@ -67,99 +83,21 @@ const getFrequencyStepDays = (frequency: FixedFrequency) => {
   return 1;
 };
 
-const initialVehicleLocations: Record<string, VehicleLocation> = {
-  "車輛 A-102": {
-    vehicle: "車輛 A-102",
-    area: "新竹市東區",
-    address: "新竹科學園區力行路附近",
-    latitude: 24.7819,
-    longitude: 121.0086,
-    updatedAt: "2 分鐘前",
-  },
-  "車輛 B-216": {
-    vehicle: "車輛 B-216",
-    area: "台中市西屯區",
-    address: "台灣大道四段附近",
-    latitude: 24.1811,
-    longitude: 120.6037,
-    updatedAt: "5 分鐘前",
-  },
-  "車輛 C-031": {
-    vehicle: "車輛 C-031",
-    area: "桃園市龜山區",
-    address: "文化一路附近",
-    latitude: 25.0532,
-    longitude: 121.3669,
-    updatedAt: "8 分鐘前",
-  },
-};
+const initialTasks: DispatchTask[] = importedDispatchTasks;
 
-const initialTasks: DispatchTask[] = [
-  {
-    id: "DSP-001",
-    scheduleType: "一般排班",
-    serviceDate: getTodayDate(),
-    orderNumber: "SO-20260624-001",
-    dispatchTime: "08:30",
-    departureTime: "09:00",
-    arrivalTime: "10:15",
-    customer: "新竹科學園區 A 廠",
-    gasType: "氮氣 N2",
-    vehicle: "車輛 A-102",
-    driver: "王司機",
-    frequency: "日",
-    generateCount: 1,
-    status: "配送中",
-  },
-  {
-    id: "FIX-001",
-    scheduleType: "固定派車",
-    serviceDate: getTodayDate(),
-    orderNumber: "SO-FIX-N2-001",
-    dispatchTime: "08:00",
-    departureTime: "08:30",
-    arrivalTime: "09:45",
-    customer: "固定路線：新竹園區每日補氣",
-    gasType: "氮氣 N2",
-    vehicle: "車輛 A-102",
-    driver: "王司機",
-    frequency: "日",
-    generateCount: 1,
-    status: "待派車",
-  },
-  {
-    id: "DSP-002",
-    scheduleType: "一般排班",
-    serviceDate: getTodayDate(),
-    orderNumber: "SO-20260624-002",
-    dispatchTime: "11:00",
-    departureTime: "11:30",
-    arrivalTime: "13:00",
-    customer: "台中精密製造 B 廠",
-    gasType: "氧氣 O2",
-    vehicle: "車輛 B-216",
-    driver: "陳司機",
-    frequency: "日",
-    generateCount: 1,
-    status: "待派車",
-  },
-  {
-    id: "DSP-003",
-    scheduleType: "一般排班",
-    serviceDate: getTodayDate(),
-    orderNumber: "SO-20260624-003",
-    dispatchTime: "13:30",
-    departureTime: "14:00",
-    arrivalTime: "15:10",
-    customer: "桃園電子材料 C 廠",
-    gasType: "氬氣 Ar",
-    vehicle: "車輛 C-031",
-    driver: "林司機",
-    frequency: "日",
-    generateCount: 1,
-    status: "已完成",
-  },
-];
+const initialVehicleLocations: Record<string, VehicleLocation> =
+  importedTankers.slice(0, 12).reduce<Record<string, VehicleLocation>>((locations, tanker, index) => {
+    const vehicle = `${tanker.tankNo} / ${tanker.plateNumber}`;
+    locations[vehicle] = {
+      vehicle,
+      area: tanker.material || "槽車資料",
+      address: `${tanker.pressureType || "未標示壓力"} / ${tanker.capacityTon ?? "未填"} 噸`,
+      latitude: Number((24.1477 + index * 0.018).toFixed(6)),
+      longitude: Number((120.6736 + index * 0.014).toFixed(6)),
+      updatedAt: "匯入資料",
+    };
+    return locations;
+  }, {});
 
 const initialFormState: DispatchFormState = {
   scheduleType: "一般排班",
@@ -192,7 +130,9 @@ export function DashboardPage() {
   const [tasks, setTasks] = useState<DispatchTask[]>(initialTasks);
   const [form, setForm] = useState<DispatchFormState>(initialFormState);
   const [error, setError] = useState("");
-  const [trackedVehicle, setTrackedVehicle] = useState("車輛 A-102");
+  const [trackedVehicle, setTrackedVehicle] = useState(
+    importedTankers[0] ? `${importedTankers[0].tankNo} / ${importedTankers[0].plateNumber}` : "",
+  );
   const [vehicleLocations, setVehicleLocations] =
     useState<Record<string, VehicleLocation>>(initialVehicleLocations);
 
@@ -237,7 +177,7 @@ export function DashboardPage() {
             ...currentLocation,
             latitude: Number((currentLocation.latitude + 0.00012).toFixed(6)),
             longitude: Number((currentLocation.longitude + 0.00009).toFixed(6)),
-            updatedAt: new Date().toLocaleTimeString("zh-TW", {
+            updatedAt: new Date().toLocaleTimeString(language === "en" ? "en-US" : "zh-TW", {
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit",
@@ -248,7 +188,7 @@ export function DashboardPage() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [trackedVehicle]);
+  }, [language, trackedVehicle]);
 
   const getGasLimitError = (
     gasType: GasType,
@@ -369,6 +309,13 @@ export function DashboardPage() {
         ))}
       </section>
 
+      <section className="mx-auto grid max-w-6xl gap-5 px-5 pb-6 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label={t("匯入客戶訂單")} value={importedDispatchTasks.length} />
+        <SummaryCard label={t("匯入司機")} value={importedDrivers.length} />
+        <SummaryCard label={t("匯入槽車")} value={importedTankers.length} />
+        <SummaryCard label={t("匯入物料價格")} value={importedMaterialPrices.length} />
+      </section>
+
       <section className="mx-auto grid max-w-6xl gap-5 px-5 pb-10 lg:grid-cols-[1fr_360px]">
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
           <PanelHeader
@@ -381,7 +328,7 @@ export function DashboardPage() {
             </p>
             <button
               className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800"
-              onClick={() => exportDispatchExcel(tasks)}
+              onClick={() => exportDispatchExcel(tasks, t)}
               type="button"
             >
               {t("匯出 Excel")}
@@ -408,7 +355,7 @@ export function DashboardPage() {
   );
 }
 
-function exportDispatchExcel(tasks: DispatchTask[]) {
+function exportDispatchExcel(tasks: DispatchTask[], t: (text: string) => string) {
   const headers = [
     "任務編號",
     "登錄類型",
@@ -421,25 +368,37 @@ function exportDispatchExcel(tasks: DispatchTask[]) {
     "氣體種類",
     "車輛",
     "司機",
+    "客戶代碼",
+    "物料",
+    "數量",
+    "目的地",
+    "合約價格",
+    "每次出貨量",
     "固定頻率",
     "狀態",
   ];
   const rows = tasks.map((task) => [
     task.id,
-    task.scheduleType,
+    t(task.scheduleType),
     task.serviceDate,
-    task.orderNumber || "未填",
+    task.orderNumber || t("未填"),
     task.dispatchTime,
     task.departureTime,
     task.arrivalTime,
-    task.customer,
-    task.gasType,
-    task.vehicle,
-    task.driver,
-    task.scheduleType === "固定派車" ? task.frequency : "",
-    task.status,
+    t(task.customer),
+    t(task.gasType),
+    t(task.vehicle),
+    t(task.driver),
+    task.customerCode || "",
+    task.sourceMaterial || "",
+    task.quantity ?? "",
+    task.destination || "",
+    task.contractPrice ?? "",
+    task.shipmentQty ?? "",
+    task.scheduleType === "固定派車" ? t(task.frequency) : "",
+    t(task.status),
   ]);
-  const tableRows = [headers, ...rows]
+  const tableRows = [headers.map(t), ...rows]
     .map(
       (row) =>
         `<tr>${row.map((cell) => `<td>${escapeHtml(String(cell))}</td>`).join("")}</tr>`,
@@ -570,10 +529,11 @@ function VehicleLocationPanel({ location }: VehicleLocationPanelProps) {
         <p className="text-sm font-medium text-cyan-700">{t("車輛即時定位")}</p>
         <h3 className="mt-1 text-lg font-semibold">{t(location.vehicle)}</h3>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          {location.area} / {location.address}
+          {t(location.area)} / {t(location.address)}
         </p>
         <p className="mt-2 text-sm text-slate-500">
-          座標：{location.latitude}, {location.longitude} / 更新：{location.updatedAt}
+          {t("座標")}：{location.latitude}, {location.longitude} / {t("更新")}：
+          {t(location.updatedAt)}
         </p>
         <a
           className="mt-4 inline-flex h-9 items-center rounded-md border border-cyan-700 px-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
@@ -589,7 +549,7 @@ function VehicleLocationPanel({ location }: VehicleLocationPanelProps) {
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
         src={embedUrl}
-        title={`${location.vehicle} Google Maps 位置`}
+        title={`${t(location.vehicle)} ${t("Google Maps 位置")}`}
       />
     </section>
   );
@@ -623,8 +583,21 @@ function TimeBlock({ item }: TimeBlockProps) {
 
 type DispatchDetailsProps = {
   item: Pick<
-    DispatchFormState,
-    "orderNumber" | "customer" | "gasType" | "vehicle" | "driver"
+    DispatchTask,
+    | "orderNumber"
+    | "customer"
+    | "gasType"
+    | "vehicle"
+    | "driver"
+    | "customerCode"
+    | "sourceMaterial"
+    | "quantity"
+    | "destination"
+    | "deliveryWindow"
+    | "assignedTankerType"
+    | "remark"
+    | "contractPrice"
+    | "shipmentQty"
   >;
 };
 
@@ -640,6 +613,37 @@ function DispatchDetails({ item }: DispatchDetailsProps) {
       <p className="mt-2 text-sm leading-6 text-slate-600">
         {t(item.gasType)} / {t(item.vehicle)} / {t(item.driver)}
       </p>
+      <div className="mt-3 grid gap-1 text-sm text-slate-500 sm:grid-cols-2">
+        <p>
+          {t("客戶代碼")}：{item.customerCode || t("未填")}
+        </p>
+        <p>
+          {t("物料")}：{item.sourceMaterial || t("未填")}
+        </p>
+        <p>
+          {t("數量")}：{item.quantity ?? t("未填")}
+        </p>
+        <p>
+          {t("目的地")}：{item.destination || t("未填")}
+        </p>
+        <p>
+          {t("收貨時間")}：{item.deliveryWindow || t("未填")}
+        </p>
+        <p>
+          {t("指定槽車")}：{item.assignedTankerType || t("未填")}
+        </p>
+        <p>
+          {t("合約價格")}：{item.contractPrice ?? t("未填")}
+        </p>
+        <p>
+          {t("每次出貨量")}：{item.shipmentQty ?? t("未填")}
+        </p>
+      </div>
+      {item.remark ? (
+        <p className="mt-2 text-sm text-slate-500">
+          {t("備註")}：{item.remark}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -740,7 +744,7 @@ function DispatchForm({ error, form, onChange, onSubmit }: DispatchFormProps) {
           onChange={(event) =>
             onChange({ ...form, customer: event.target.value })
           }
-          placeholder="例如 台南半導體 D 廠"
+          placeholder={t("例如 台南半導體 D 廠")}
         />
       </label>
 
@@ -767,7 +771,7 @@ function DispatchForm({ error, form, onChange, onSubmit }: DispatchFormProps) {
           className="h-11 rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
           value={form.vehicle}
           onChange={(event) => onChange({ ...form, vehicle: event.target.value })}
-          placeholder="例如 車輛 D-088"
+          placeholder={t("例如 車輛 D-088")}
         />
       </label>
 
@@ -777,7 +781,7 @@ function DispatchForm({ error, form, onChange, onSubmit }: DispatchFormProps) {
           className="h-11 rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
           value={form.driver}
           onChange={(event) => onChange({ ...form, driver: event.target.value })}
-          placeholder="例如 張司機"
+          placeholder={t("例如 張司機")}
         />
       </label>
 
