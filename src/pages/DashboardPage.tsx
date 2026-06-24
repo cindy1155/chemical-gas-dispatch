@@ -22,6 +22,9 @@ type SearchFieldOption<T> = {
   label: string;
   getValue: (item: T) => string | number | null | undefined;
 };
+type MaterialPriceWithOrder = (typeof importedMaterialPrices)[number] & {
+  matchedOrder?: DispatchTask;
+};
 
 type DispatchFormState = {
   scheduleType: ScheduleType;
@@ -243,13 +246,17 @@ const tankerSearchOptions: SearchFieldOption<(typeof importedTankers)[number]>[]
   { value: "remark", label: "備註", getValue: (item) => item.remark },
 ];
 
-const materialSearchOptions: SearchFieldOption<(typeof importedMaterialPrices)[number]>[] = [
+const materialSearchOptions: SearchFieldOption<MaterialPriceWithOrder>[] = [
   { value: "customerCode", label: "客戶代碼", getValue: (item) => item.customerCode },
   { value: "customerName", label: "客戶", getValue: (item) => item.customerName },
   { value: "material", label: "物料", getValue: (item) => item.material },
   { value: "gasType", label: "氣體種類", getValue: (item) => item.gasType },
   { value: "deliveryLocation", label: "目的地", getValue: (item) => item.deliveryLocation },
   { value: "orderNumber", label: "訂單編號", getValue: (item) => item.orderNumber },
+  { value: "orderServiceDate", label: "訂單派車日期", getValue: (item) => item.matchedOrder?.serviceDate },
+  { value: "orderCustomer", label: "訂單客戶", getValue: (item) => item.matchedOrder?.customer },
+  { value: "orderTanker", label: "訂單指定槽車", getValue: (item) => item.matchedOrder?.assignedTankerType || item.matchedOrder?.tankerNo },
+  { value: "matchStatus", label: "比對狀態", getValue: (item) => (item.matchedOrder ? "已對應" : "未對應") },
 ];
 
 const statusStyles: Record<DispatchStatus, string> = {
@@ -303,6 +310,17 @@ export function DashboardPage() {
   );
 
   const trackedLocation = vehicleLocations[trackedVehicle];
+  const mergedMaterialPrices = useMemo<MaterialPriceWithOrder[]>(
+    () =>
+      importedMaterialPrices.map((material) => ({
+        ...material,
+        matchedOrder: initialTasks.find(
+          (task) => task.orderNumber && task.orderNumber === material.orderNumber,
+        ),
+      })),
+    [],
+  );
+
   const filteredTasks = useMemo(
     () => filterItems(tasks, dispatchSearchOptions, tableFilters["派車表"]),
     [tableFilters, tasks],
@@ -319,8 +337,8 @@ export function DashboardPage() {
   );
 
   const filteredMaterialPrices = useMemo(
-    () => filterItems(importedMaterialPrices, materialSearchOptions, tableFilters["gas物料價格表"]),
-    [tableFilters],
+    () => filterItems(mergedMaterialPrices, materialSearchOptions, tableFilters["gas物料價格表"]),
+    [mergedMaterialPrices, tableFilters],
   );
 
   const updateTableFilter = (tab: WorkTab, nextFilter: TableFilterState) => {
@@ -948,11 +966,11 @@ function TankerTable({ filter, isDataLinked, items, onFilterChange, onSelect }: 
 }
 
 type MaterialPriceTableProps = {
-  items: typeof importedMaterialPrices;
+  items: MaterialPriceWithOrder[];
   filter: TableFilterState;
   isDataLinked: boolean;
   onFilterChange: (nextFilter: TableFilterState) => void;
-  onSelect: (material: (typeof importedMaterialPrices)[number]) => void;
+  onSelect: (material: MaterialPriceWithOrder) => void;
 };
 
 function MaterialPriceTable({
@@ -974,7 +992,7 @@ function MaterialPriceTable({
         onChange={onFilterChange}
         options={materialSearchOptions}
       />
-      <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
+      <table className="min-w-[1480px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
             {[
@@ -988,6 +1006,17 @@ function MaterialPriceTable({
               "月用量",
               "每次出貨量",
               "訂單編號",
+              "比對狀態",
+              "訂單派車日期",
+              "訂單派車時間",
+              "訂單出廠時間",
+              "訂單指定到達時間",
+              "訂單客戶",
+              "訂單數量",
+              "訂單收貨時間",
+              "訂單指定槽車",
+              "訂單司機",
+              "訂單狀態",
               "操作",
             ].map((header) => (
               <th className="px-3 py-3 font-semibold" key={header}>
@@ -1009,6 +1038,31 @@ function MaterialPriceTable({
               <td className="px-3 py-3">{item.monthlyUsage ?? item.estimatedMonthlyUsage ?? ""}</td>
               <td className="px-3 py-3">{item.shipmentQty ?? ""}</td>
               <td className="px-3 py-3">{item.orderNumber}</td>
+              <td className="px-3 py-3">
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                    item.matchedOrder
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-700"
+                  }`}
+                >
+                  {t(item.matchedOrder ? "已對應" : "未對應")}
+                </span>
+              </td>
+              <td className="px-3 py-3">{item.matchedOrder?.serviceDate || ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.dispatchTime || ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.departureTime || ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.arrivalTime || ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.customer || ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.quantity ?? ""}</td>
+              <td className="px-3 py-3">{item.matchedOrder?.deliveryWindow || ""}</td>
+              <td className="px-3 py-3">
+                {item.matchedOrder?.assignedTankerType || item.matchedOrder?.tankerNo || ""}
+              </td>
+              <td className="px-3 py-3">{item.matchedOrder?.driver || ""}</td>
+              <td className="px-3 py-3">
+                {item.matchedOrder?.status ? t(item.matchedOrder.status) : ""}
+              </td>
               <td className="px-3 py-3">
                 <button
                   className="h-8 rounded-md border border-cyan-700 px-3 text-sm font-semibold text-cyan-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
