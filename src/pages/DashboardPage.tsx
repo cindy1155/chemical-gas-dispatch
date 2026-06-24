@@ -259,6 +259,22 @@ const materialSearchOptions: SearchFieldOption<MaterialPriceWithOrder>[] = [
   { value: "matchStatus", label: "比對狀態", getValue: (item) => (item.matchedOrder ? "已對應" : "未對應") },
 ];
 
+const getSearchOptionsForTab = (tab: WorkTab) => {
+  if (tab === "客戶訂單總表") {
+    return customerOrderSearchOptions;
+  }
+
+  if (tab === "氣體明細表") {
+    return tankerSearchOptions;
+  }
+
+  if (tab === "gas物料價格表") {
+    return materialSearchOptions;
+  }
+
+  return dispatchSearchOptions;
+};
+
 const statusStyles: Record<DispatchStatus, string> = {
   待派車: "bg-amber-50 text-amber-700 ring-amber-200",
   配送中: "bg-cyan-50 text-cyan-700 ring-cyan-200",
@@ -347,6 +363,8 @@ export function DashboardPage() {
       [tab]: nextFilter,
     }));
   };
+
+  const activeSearchOptions = getSearchOptionsForTab(activeTab);
 
   const updateTankerSelection = (tankNo: string) => {
     const vehicle = getTankerVehicleLabel(tankNo);
@@ -589,6 +607,11 @@ export function DashboardPage() {
               {t("資料連動")}
             </label>
           </div>
+          <SearchToolbar
+            filter={tableFilters[activeTab]}
+            onChange={(nextFilter) => updateTableFilter(activeTab, nextFilter)}
+            options={activeSearchOptions}
+          />
 
           {activeTab === "派車表" ? (
             <section className="grid gap-5 p-5 lg:grid-cols-[1fr_360px]">
@@ -609,11 +632,6 @@ export function DashboardPage() {
                     {t("匯出 Excel")}
                   </button>
                 </div>
-                <SearchToolbar
-                  filter={tableFilters["派車表"]}
-                  onChange={(nextFilter) => updateTableFilter("派車表", nextFilter)}
-                  options={dispatchSearchOptions}
-                />
                 {trackedLocation ? <VehicleLocationPanel location={trackedLocation} /> : null}
                 <DispatchList
                   items={filteredTasks}
@@ -640,30 +658,24 @@ export function DashboardPage() {
 
           {activeTab === "客戶訂單總表" ? (
             <CustomerOrderTable
-              filter={tableFilters["客戶訂單總表"]}
               isDataLinked={isDataLinked}
               items={filteredCustomerOrders}
-              onFilterChange={(nextFilter) => updateTableFilter("客戶訂單總表", nextFilter)}
               onSelect={handleSelectOrder}
             />
           ) : null}
 
           {activeTab === "氣體明細表" ? (
             <TankerTable
-              filter={tableFilters["氣體明細表"]}
               isDataLinked={isDataLinked}
               items={filteredTankers}
-              onFilterChange={(nextFilter) => updateTableFilter("氣體明細表", nextFilter)}
               onSelect={handleSelectTanker}
             />
           ) : null}
 
           {activeTab === "gas物料價格表" ? (
             <MaterialPriceTable
-              filter={tableFilters["gas物料價格表"]}
               isDataLinked={isDataLinked}
               items={filteredMaterialPrices}
-              onFilterChange={(nextFilter) => updateTableFilter("gas物料價格表", nextFilter)}
               onSelect={handleSelectMaterial}
             />
           ) : null}
@@ -837,17 +849,13 @@ function DispatchList({ items, onRemarkChange, onTrack }: DispatchListProps) {
 
 type CustomerOrderTableProps = {
   items: DispatchTask[];
-  filter: TableFilterState;
   isDataLinked: boolean;
-  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (task: DispatchTask) => void;
 };
 
 function CustomerOrderTable({
-  filter,
   isDataLinked,
   items,
-  onFilterChange,
   onSelect,
 }: CustomerOrderTableProps) {
   const { t } = useLanguage();
@@ -857,11 +865,6 @@ function CustomerOrderTable({
       description="顯示匯入的客戶訂單資料，開啟資料連動後可帶入派車表。"
       title="客戶訂單總表"
     >
-      <SearchToolbar
-        filter={filter}
-        onChange={onFilterChange}
-        options={customerOrderSearchOptions}
-      />
       <table className="min-w-[980px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -905,13 +908,11 @@ function CustomerOrderTable({
 
 type TankerTableProps = {
   items: typeof importedTankers;
-  filter: TableFilterState;
   isDataLinked: boolean;
-  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (tankNo: string) => void;
 };
 
-function TankerTable({ filter, isDataLinked, items, onFilterChange, onSelect }: TankerTableProps) {
+function TankerTable({ isDataLinked, items, onSelect }: TankerTableProps) {
   const { t } = useLanguage();
 
   return (
@@ -919,11 +920,6 @@ function TankerTable({ filter, isDataLinked, items, onFilterChange, onSelect }: 
       description="槽車編號可與派車表串聯，選取後會同步高壓車或低壓車標示。"
       title="氣體明細表"
     >
-      <SearchToolbar
-        filter={filter}
-        onChange={onFilterChange}
-        options={tankerSearchOptions}
-      />
       <table className="min-w-[860px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -967,17 +963,13 @@ function TankerTable({ filter, isDataLinked, items, onFilterChange, onSelect }: 
 
 type MaterialPriceTableProps = {
   items: MaterialPriceWithOrder[];
-  filter: TableFilterState;
   isDataLinked: boolean;
-  onFilterChange: (nextFilter: TableFilterState) => void;
   onSelect: (material: MaterialPriceWithOrder) => void;
 };
 
 function MaterialPriceTable({
-  filter,
   isDataLinked,
   items,
-  onFilterChange,
   onSelect,
 }: MaterialPriceTableProps) {
   const { t } = useLanguage();
@@ -987,11 +979,6 @@ function MaterialPriceTable({
       description="物料價格資料可帶入客戶、訂單與氣體種類，後續可再串接正式報價資料庫。"
       title="gas物料價格表"
     >
-      <SearchToolbar
-        filter={filter}
-        onChange={onFilterChange}
-        options={materialSearchOptions}
-      />
       <table className="min-w-[1480px] w-full border-collapse text-left text-sm">
         <thead className="bg-slate-100 text-slate-600">
           <tr>
@@ -1087,13 +1074,13 @@ type DataTableShellProps = {
   children: ReactNode;
 };
 
-type SearchToolbarProps<T> = {
+type SearchToolbarProps = {
   filter: TableFilterState;
-  options: SearchFieldOption<T>[];
+  options: Array<Pick<SearchFieldOption<unknown>, "value" | "label">>;
   onChange: (nextFilter: TableFilterState) => void;
 };
 
-function SearchToolbar<T>({ filter, onChange, options }: SearchToolbarProps<T>) {
+function SearchToolbar({ filter, onChange, options }: SearchToolbarProps) {
   const { t } = useLanguage();
 
   return (
