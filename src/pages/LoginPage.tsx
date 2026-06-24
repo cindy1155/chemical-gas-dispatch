@@ -13,6 +13,8 @@ const initialFormState: LoginFormState = {
   password: "",
 };
 
+const authStorageKey = "chemical-gas-dispatch-auth";
+
 export function LoginPage() {
   const navigate = useNavigate();
   const { t } = useLanguage();
@@ -28,6 +30,7 @@ export function LoginPage() {
       return;
     }
 
+    window.localStorage.setItem(authStorageKey, "authenticated");
     navigate("/dashboard");
   };
 
