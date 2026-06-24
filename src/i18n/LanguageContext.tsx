@@ -36,6 +36,8 @@ const translations: Record<string, string> = {
   "請完整填寫註冊資料。": "Please complete the registration form.",
   "請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、車輛與司機。":
     "Please complete date, dispatch time, departure time, required arrival time, customer, vehicle, and driver.",
+  "請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、槽車編號與司機。":
+    "Please complete date, dispatch time, departure time, required arrival time, customer, tanker number, and driver.",
   "密碼至少需要 8 個字元。": "Password must be at least 8 characters.",
   "兩次輸入的密碼不一致。": "The two passwords do not match.",
   "建立帳號": "Create Account",
@@ -56,6 +58,17 @@ const translations: Record<string, string> = {
   "配送中": "In Transit",
   "已完成": "Completed",
   "每日派車列表": "Daily Dispatch List",
+  "派車表": "Dispatch Sheet",
+  "客戶訂單總表": "Customer Orders",
+  "氣體明細表": "Gas Tanker Details",
+  "gas物料價格表": "Gas Material Prices",
+  "資料連動": "Link Data",
+  "顯示匯入的客戶訂單資料，開啟資料連動後可帶入派車表。":
+    "Shows imported customer orders. When data linking is enabled, rows can be applied to the dispatch sheet.",
+  "槽車編號可與派車表串聯，選取後會同步高壓車或低壓車標示。":
+    "Tanker numbers can link to the dispatch sheet and sync high-pressure or low-pressure labels.",
+  "物料價格資料可帶入客戶、訂單與氣體種類，後續可再串接正式報價資料庫。":
+    "Material price data can fill customer, order, and gas type fields. It can later connect to a pricing database.",
   "一般排班與固定頻率派車明細會顯示在同一份每日派車列表中。":
     "General schedules and generated fixed-frequency details appear in the same daily dispatch list.",
   "可追蹤車輛即時位置，並將目前派車表匯出為 Excel。":
@@ -85,9 +98,24 @@ const translations: Record<string, string> = {
   "目的地": "Destination",
   "收貨時間": "Receiving Time",
   "指定槽車": "Assigned Tanker",
+  "槽車編號": "Tanker No.",
+  "槽車壓力": "Tanker Pressure",
+  "高壓車": "High-Pressure Tanker",
+  "低壓車": "Low-Pressure Tanker",
+  "請選擇槽車編號": "Select tanker number",
+  "選擇槽車後自動帶入": "Auto-filled after selecting tanker",
+  "車牌": "Plate Number",
+  "容量噸": "Capacity Ton",
+  "容積": "Volume",
+  "製造商": "Manufacturer",
   "備註": "Remark",
+  "可自由輸入備註": "Enter remarks freely",
   "合約價格": "Contract Price",
+  "付款條件": "Payment Term",
+  "月用量": "Monthly Usage",
   "每次出貨量": "Shipment Qty",
+  "操作": "Action",
+  "帶入派車": "Apply to Dispatch",
   "氣體種類": "Gas Type",
   "車輛": "Vehicle",
   "狀態": "Status",

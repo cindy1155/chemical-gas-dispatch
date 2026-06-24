@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { LanguageToggle, useLanguage } from "../i18n/LanguageContext";
 import {
@@ -12,6 +12,7 @@ type DispatchStatus = "待派車" | "配送中" | "已完成";
 type GasType = "氮氣 N2" | "氧氣 O2" | "氬氣 Ar" | "二氧化碳 CO2";
 type FixedFrequency = "日" | "每二日" | "週";
 type ScheduleType = "一般排班" | "固定派車";
+type WorkTab = "派車表" | "客戶訂單總表" | "氣體明細表" | "gas物料價格表";
 
 type DispatchFormState = {
   scheduleType: ScheduleType;
@@ -22,8 +23,10 @@ type DispatchFormState = {
   arrivalTime: string;
   customer: string;
   gasType: GasType;
+  tankerNo: string;
   vehicle: string;
   driver: string;
+  remark: string;
   frequency: FixedFrequency;
   generateCount: number;
 };
@@ -38,6 +41,8 @@ type DispatchTask = DispatchFormState & {
   quantity?: number | null;
   deliveryWindow?: string;
   assignedTankerType?: string;
+  tankerNo?: string;
+  tankerPressureType?: string;
   remark?: string;
   contractPrice?: number | null;
   shipmentQty?: number | null;
@@ -62,6 +67,7 @@ const gasTripLimits: Record<GasType, number> = {
 const gasOptions: GasType[] = ["氮氣 N2", "氧氣 O2", "氬氣 Ar", "二氧化碳 CO2"];
 const frequencyOptions: FixedFrequency[] = ["日", "每二日", "週"];
 const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
+const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表", "gas物料價格表"];
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
@@ -83,11 +89,68 @@ const getFrequencyStepDays = (frequency: FixedFrequency) => {
   return 1;
 };
 
-const initialTasks: DispatchTask[] = importedDispatchTasks;
+const getPressureLabel = (pressureType: string) => {
+  if (pressureType.includes("低壓")) {
+    return "低壓車";
+  }
+
+  if (pressureType.includes("高壓")) {
+    return "高壓車";
+  }
+
+  return pressureType || "未標示壓力";
+};
+
+const getTankerByNo = (tankNo: string) =>
+  importedTankers.find((tanker) => tanker.tankNo === tankNo);
+
+const getTankerVehicleLabel = (tankNo: string) => {
+  const tanker = getTankerByNo(tankNo);
+
+  if (!tanker) {
+    return "";
+  }
+
+  return `${tanker.tankNo}（${getPressureLabel(tanker.pressureType)}） / ${tanker.plateNumber}`;
+};
+
+const normalizeGasType = (value: string): GasType => {
+  const upperValue = value.toUpperCase();
+
+  if (upperValue.includes("O2") || upperValue.includes("氧")) {
+    return "氧氣 O2";
+  }
+
+  if (upperValue.includes("AR") || upperValue.includes("氬")) {
+    return "氬氣 Ar";
+  }
+
+  if (upperValue.includes("CO2") || upperValue.includes("二氧化碳")) {
+    return "二氧化碳 CO2";
+  }
+
+  return "氮氣 N2";
+};
+
+const hydrateImportedTask = (task: (typeof importedDispatchTasks)[number]): DispatchTask => {
+  const matchedTanker =
+    importedTankers.find((tanker) => (task.assignedTankerType || "").includes(tanker.tankNo)) ||
+    importedTankers.find((tanker) => task.vehicle.includes(tanker.tankNo));
+
+  return {
+    ...task,
+    tankerNo: matchedTanker?.tankNo || "",
+    tankerPressureType: matchedTanker ? getPressureLabel(matchedTanker.pressureType) : "",
+    vehicle: matchedTanker ? getTankerVehicleLabel(matchedTanker.tankNo) : task.vehicle,
+    remark: "",
+  };
+};
+
+const initialTasks: DispatchTask[] = importedDispatchTasks.map(hydrateImportedTask);
 
 const initialVehicleLocations: Record<string, VehicleLocation> =
   importedTankers.slice(0, 12).reduce<Record<string, VehicleLocation>>((locations, tanker, index) => {
-    const vehicle = `${tanker.tankNo} / ${tanker.plateNumber}`;
+    const vehicle = getTankerVehicleLabel(tanker.tankNo);
     locations[vehicle] = {
       vehicle,
       area: tanker.material || "槽車資料",
@@ -108,8 +171,10 @@ const initialFormState: DispatchFormState = {
   arrivalTime: "",
   customer: "",
   gasType: "氮氣 N2",
+  tankerNo: "",
   vehicle: "",
   driver: "",
+  remark: "",
   frequency: "日",
   generateCount: 7,
 };
@@ -131,10 +196,12 @@ export function DashboardPage() {
   const [form, setForm] = useState<DispatchFormState>(initialFormState);
   const [error, setError] = useState("");
   const [trackedVehicle, setTrackedVehicle] = useState(
-    importedTankers[0] ? `${importedTankers[0].tankNo} / ${importedTankers[0].plateNumber}` : "",
+    importedTankers[0] ? getTankerVehicleLabel(importedTankers[0].tankNo) : "",
   );
   const [vehicleLocations, setVehicleLocations] =
     useState<Record<string, VehicleLocation>>(initialVehicleLocations);
+  const [activeTab, setActiveTab] = useState<WorkTab>("派車表");
+  const [isDataLinked, setIsDataLinked] = useState(true);
 
   const summary = useMemo(
     () => ({
@@ -161,6 +228,63 @@ export function DashboardPage() {
   );
 
   const trackedLocation = vehicleLocations[trackedVehicle];
+
+  const updateTankerSelection = (tankNo: string) => {
+    const vehicle = getTankerVehicleLabel(tankNo);
+    setForm((current) => ({
+      ...current,
+      tankerNo: tankNo,
+      vehicle,
+    }));
+  };
+
+  const handleSelectOrder = (task: DispatchTask) => {
+    if (!isDataLinked) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      orderNumber: task.orderNumber,
+      customer: task.customer,
+      gasType: task.gasType,
+      dispatchTime: task.dispatchTime,
+      departureTime: task.departureTime,
+      arrivalTime: task.arrivalTime,
+      tankerNo: task.tankerNo || current.tankerNo,
+      vehicle: task.tankerNo ? getTankerVehicleLabel(task.tankerNo) : current.vehicle,
+    }));
+    setActiveTab("派車表");
+  };
+
+  const handleSelectTanker = (tankNo: string) => {
+    if (!isDataLinked) {
+      return;
+    }
+
+    updateTankerSelection(tankNo);
+    setActiveTab("派車表");
+  };
+
+  const handleSelectMaterial = (material: (typeof importedMaterialPrices)[number]) => {
+    if (!isDataLinked) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      orderNumber: material.orderNumber || current.orderNumber,
+      customer: material.customerName || current.customer,
+      gasType: normalizeGasType(material.gasType || material.material),
+    }));
+    setActiveTab("派車表");
+  };
+
+  const handleRemarkChange = (taskId: string, remark: string) => {
+    setTasks((current) =>
+      current.map((task) => (task.id === taskId ? { ...task, remark } : task)),
+    );
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -215,6 +339,7 @@ export function DashboardPage() {
     !data.departureTime.trim() ||
     !data.arrivalTime.trim() ||
     !data.customer.trim() ||
+    !data.tankerNo.trim() ||
     !data.vehicle.trim() ||
     !data.driver.trim();
 
@@ -223,7 +348,7 @@ export function DashboardPage() {
     setError("");
 
     if (isDispatchFormIncomplete(form)) {
-      setError(t("請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、車輛與司機。"));
+      setError(t("請完整填寫日期、派車時間、出廠時間、指定到達時間、客戶、槽車編號與司機。"));
       return;
     }
 
@@ -316,40 +441,103 @@ export function DashboardPage() {
         <SummaryCard label={t("匯入物料價格")} value={importedMaterialPrices.length} />
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-5 px-5 pb-10 lg:grid-cols-[1fr_360px]">
+      <section className="mx-auto max-w-6xl px-5 pb-10">
         <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <PanelHeader
-            description="一般排班與固定頻率派車明細會顯示在同一份每日派車列表中。"
-            title="每日派車列表"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-600">
-              {t("可追蹤車輛即時位置，並將目前派車表匯出為 Excel。")}
-            </p>
-            <button
-              className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800"
-              onClick={() => exportDispatchExcel(tasks, t)}
-              type="button"
-            >
-              {t("匯出 Excel")}
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+            <div className="flex flex-wrap gap-2">
+              {workTabs.map((tab) => (
+                <button
+                  className={`h-10 rounded-md px-3 text-sm font-semibold transition ${
+                    activeTab === tab
+                      ? "bg-cyan-700 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  type="button"
+                >
+                  {t(tab)}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                checked={isDataLinked}
+                className="h-4 w-4 accent-cyan-700"
+                onChange={(event) => setIsDataLinked(event.target.checked)}
+                type="checkbox"
+              />
+              {t("資料連動")}
+            </label>
           </div>
-          {trackedLocation ? <VehicleLocationPanel location={trackedLocation} /> : null}
-          <DispatchList items={tasks} onTrack={handleTrackVehicle} />
-        </div>
 
-        <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold">{t("新增派車")}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            {t("可登錄一般排班或固定頻率派車，固定派車會一次產生多筆明細。")}
-          </p>
-          <DispatchForm
-            error={error}
-            form={form}
-            onChange={setForm}
-            onSubmit={handleSubmit}
-          />
-        </aside>
+          {activeTab === "派車表" ? (
+            <section className="grid gap-5 p-5 lg:grid-cols-[1fr_360px]">
+              <div className="rounded-lg border border-slate-200 bg-white">
+                <PanelHeader
+                  description="一般排班與固定頻率派車明細會顯示在同一份每日派車列表中。"
+                  title="每日派車列表"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-5">
+                  <p className="text-sm text-slate-600">
+                    {t("可追蹤車輛即時位置，並將目前派車表匯出為 Excel。")}
+                  </p>
+                  <button
+                    className="h-10 rounded-md bg-cyan-700 px-4 text-sm font-semibold text-white transition hover:bg-cyan-800"
+                    onClick={() => exportDispatchExcel(tasks, t)}
+                    type="button"
+                  >
+                    {t("匯出 Excel")}
+                  </button>
+                </div>
+                {trackedLocation ? <VehicleLocationPanel location={trackedLocation} /> : null}
+                <DispatchList
+                  items={tasks}
+                  onRemarkChange={handleRemarkChange}
+                  onTrack={handleTrackVehicle}
+                />
+              </div>
+
+              <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold">{t("新增派車")}</h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {t("可登錄一般排班或固定頻率派車，固定派車會一次產生多筆明細。")}
+                </p>
+                <DispatchForm
+                  error={error}
+                  form={form}
+                  onChange={setForm}
+                  onSubmit={handleSubmit}
+                  onTankerChange={updateTankerSelection}
+                />
+              </aside>
+            </section>
+          ) : null}
+
+          {activeTab === "客戶訂單總表" ? (
+            <CustomerOrderTable
+              isDataLinked={isDataLinked}
+              items={initialTasks}
+              onSelect={handleSelectOrder}
+            />
+          ) : null}
+
+          {activeTab === "氣體明細表" ? (
+            <TankerTable
+              isDataLinked={isDataLinked}
+              items={importedTankers}
+              onSelect={handleSelectTanker}
+            />
+          ) : null}
+
+          {activeTab === "gas物料價格表" ? (
+            <MaterialPriceTable
+              isDataLinked={isDataLinked}
+              items={importedMaterialPrices}
+              onSelect={handleSelectMaterial}
+            />
+          ) : null}
+        </div>
       </section>
     </main>
   );
@@ -366,6 +554,8 @@ function exportDispatchExcel(tasks: DispatchTask[], t: (text: string) => string)
     "指定到達時間",
     "客戶/路線",
     "氣體種類",
+    "槽車編號",
+    "槽車壓力",
     "車輛",
     "司機",
     "客戶代碼",
@@ -374,6 +564,7 @@ function exportDispatchExcel(tasks: DispatchTask[], t: (text: string) => string)
     "目的地",
     "合約價格",
     "每次出貨量",
+    "備註",
     "固定頻率",
     "狀態",
   ];
@@ -387,6 +578,8 @@ function exportDispatchExcel(tasks: DispatchTask[], t: (text: string) => string)
     task.arrivalTime,
     t(task.customer),
     t(task.gasType),
+    task.tankerNo || "",
+    task.tankerPressureType || "",
     t(task.vehicle),
     t(task.driver),
     task.customerCode || "",
@@ -395,6 +588,7 @@ function exportDispatchExcel(tasks: DispatchTask[], t: (text: string) => string)
     task.destination || "",
     task.contractPrice ?? "",
     task.shipmentQty ?? "",
+    task.remark || "",
     task.scheduleType === "固定派車" ? t(task.frequency) : "",
     t(task.status),
   ]);
@@ -443,6 +637,7 @@ function buildDispatchTasks(form: DispatchFormState, currentTaskCount: number) {
       ...form,
       id: `${idPrefix}-${String(currentTaskCount + index + 1).padStart(3, "0")}`,
       serviceDate,
+      tankerPressureType: getPressureLabel(getTankerByNo(form.tankerNo)?.pressureType || ""),
       orderNumber:
         form.scheduleType === "固定派車" && form.orderNumber
           ? `${form.orderNumber}-${String(index + 1).padStart(2, "0")}`
@@ -465,9 +660,10 @@ function escapeHtml(value: string) {
 type DispatchListProps = {
   items: DispatchTask[];
   onTrack: (vehicle: string) => void;
+  onRemarkChange: (taskId: string, remark: string) => void;
 };
 
-function DispatchList({ items, onTrack }: DispatchListProps) {
+function DispatchList({ items, onRemarkChange, onTrack }: DispatchListProps) {
   const { t } = useLanguage();
 
   return (
@@ -478,7 +674,7 @@ function DispatchList({ items, onTrack }: DispatchListProps) {
           key={task.id}
         >
           <TimeBlock item={task} />
-          <DispatchDetails item={task} />
+          <DispatchDetails item={task} onRemarkChange={(remark) => onRemarkChange(task.id, remark)} />
           <div className="flex flex-wrap gap-2 md:justify-end">
             <span
               className={`w-fit rounded-full px-3 py-1 text-sm font-semibold ring-1 ${typeStyles[task.scheduleType]}`}
@@ -506,6 +702,200 @@ function DispatchList({ items, onTrack }: DispatchListProps) {
         </article>
       ))}
     </div>
+  );
+}
+
+type CustomerOrderTableProps = {
+  items: DispatchTask[];
+  isDataLinked: boolean;
+  onSelect: (task: DispatchTask) => void;
+};
+
+function CustomerOrderTable({ isDataLinked, items, onSelect }: CustomerOrderTableProps) {
+  const { t } = useLanguage();
+
+  return (
+    <DataTableShell
+      description="顯示匯入的客戶訂單資料，開啟資料連動後可帶入派車表。"
+      title="客戶訂單總表"
+    >
+      <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-slate-600">
+          <tr>
+            {["訂單編號", "派車日期", "客戶/路線", "氣體種類", "數量", "目的地", "收貨時間", "指定槽車", "操作"].map(
+              (header) => (
+                <th className="px-3 py-3 font-semibold" key={header}>
+                  {t(header)}
+                </th>
+              ),
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {items.map((item) => (
+            <tr className="align-top" key={item.id}>
+              <td className="px-3 py-3">{item.orderNumber || t("未填")}</td>
+              <td className="px-3 py-3">{item.serviceDate}</td>
+              <td className="px-3 py-3">{item.customer}</td>
+              <td className="px-3 py-3">{t(item.gasType)}</td>
+              <td className="px-3 py-3">{item.quantity ?? ""}</td>
+              <td className="px-3 py-3">{item.destination}</td>
+              <td className="px-3 py-3">{item.deliveryWindow}</td>
+              <td className="px-3 py-3">{item.assignedTankerType || item.tankerNo}</td>
+              <td className="px-3 py-3">
+                <button
+                  className="h-8 rounded-md border border-cyan-700 px-3 text-sm font-semibold text-cyan-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                  disabled={!isDataLinked}
+                  onClick={() => onSelect(item)}
+                  type="button"
+                >
+                  {t("帶入派車")}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataTableShell>
+  );
+}
+
+type TankerTableProps = {
+  items: typeof importedTankers;
+  isDataLinked: boolean;
+  onSelect: (tankNo: string) => void;
+};
+
+function TankerTable({ isDataLinked, items, onSelect }: TankerTableProps) {
+  const { t } = useLanguage();
+
+  return (
+    <DataTableShell
+      description="槽車編號可與派車表串聯，選取後會同步高壓車或低壓車標示。"
+      title="氣體明細表"
+    >
+      <table className="min-w-[860px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-slate-600">
+          <tr>
+            {["槽車編號", "車牌", "氣體種類", "槽車壓力", "容量噸", "容積", "製造商", "備註", "操作"].map(
+              (header) => (
+                <th className="px-3 py-3 font-semibold" key={header}>
+                  {t(header)}
+                </th>
+              ),
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {items.map((item) => (
+            <tr className="align-top" key={item.tankNo}>
+              <td className="px-3 py-3 font-semibold">{item.tankNo}</td>
+              <td className="px-3 py-3">{item.plateNumber}</td>
+              <td className="px-3 py-3">{item.material}</td>
+              <td className="px-3 py-3">{t(getPressureLabel(item.pressureType))}</td>
+              <td className="px-3 py-3">{item.capacityTon ?? ""}</td>
+              <td className="px-3 py-3">{item.volumeM3 ?? ""}</td>
+              <td className="px-3 py-3">{item.manufacturer}</td>
+              <td className="px-3 py-3">{item.remark}</td>
+              <td className="px-3 py-3">
+                <button
+                  className="h-8 rounded-md border border-cyan-700 px-3 text-sm font-semibold text-cyan-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                  disabled={!isDataLinked}
+                  onClick={() => onSelect(item.tankNo)}
+                  type="button"
+                >
+                  {t("帶入派車")}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataTableShell>
+  );
+}
+
+type MaterialPriceTableProps = {
+  items: typeof importedMaterialPrices;
+  isDataLinked: boolean;
+  onSelect: (material: (typeof importedMaterialPrices)[number]) => void;
+};
+
+function MaterialPriceTable({ isDataLinked, items, onSelect }: MaterialPriceTableProps) {
+  const { t } = useLanguage();
+
+  return (
+    <DataTableShell
+      description="物料價格資料可帶入客戶、訂單與氣體種類，後續可再串接正式報價資料庫。"
+      title="gas物料價格表"
+    >
+      <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
+        <thead className="bg-slate-100 text-slate-600">
+          <tr>
+            {[
+              "客戶代碼",
+              "客戶",
+              "物料",
+              "氣體種類",
+              "目的地",
+              "合約價格",
+              "付款條件",
+              "月用量",
+              "每次出貨量",
+              "訂單編號",
+              "操作",
+            ].map((header) => (
+              <th className="px-3 py-3 font-semibold" key={header}>
+                {t(header)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {items.map((item, index) => (
+            <tr className="align-top" key={`${item.customerCode}-${item.material}-${index}`}>
+              <td className="px-3 py-3">{item.customerCode}</td>
+              <td className="px-3 py-3">{item.customerName}</td>
+              <td className="px-3 py-3">{item.material}</td>
+              <td className="px-3 py-3">{item.gasType}</td>
+              <td className="px-3 py-3">{item.deliveryLocation}</td>
+              <td className="px-3 py-3">{item.contractPrice ?? ""}</td>
+              <td className="px-3 py-3">{item.paymentTerm}</td>
+              <td className="px-3 py-3">{item.monthlyUsage ?? item.estimatedMonthlyUsage ?? ""}</td>
+              <td className="px-3 py-3">{item.shipmentQty ?? ""}</td>
+              <td className="px-3 py-3">{item.orderNumber}</td>
+              <td className="px-3 py-3">
+                <button
+                  className="h-8 rounded-md border border-cyan-700 px-3 text-sm font-semibold text-cyan-700 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+                  disabled={!isDataLinked}
+                  onClick={() => onSelect(item)}
+                  type="button"
+                >
+                  {t("帶入派車")}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataTableShell>
+  );
+}
+
+type DataTableShellProps = {
+  title: string;
+  description: string;
+  children: ReactNode;
+};
+
+function DataTableShell({ children, description, title }: DataTableShellProps) {
+  const { t } = useLanguage();
+
+  return (
+    <section>
+      <PanelHeader description={description} title={title} />
+      <div className="overflow-x-auto p-5">{children}</div>
+    </section>
   );
 }
 
@@ -589,6 +979,8 @@ type DispatchDetailsProps = {
     | "gasType"
     | "vehicle"
     | "driver"
+    | "tankerNo"
+    | "tankerPressureType"
     | "customerCode"
     | "sourceMaterial"
     | "quantity"
@@ -599,9 +991,10 @@ type DispatchDetailsProps = {
     | "contractPrice"
     | "shipmentQty"
   >;
+  onRemarkChange: (remark: string) => void;
 };
 
-function DispatchDetails({ item }: DispatchDetailsProps) {
+function DispatchDetails({ item, onRemarkChange }: DispatchDetailsProps) {
   const { t } = useLanguage();
 
   return (
@@ -633,17 +1026,24 @@ function DispatchDetails({ item }: DispatchDetailsProps) {
           {t("指定槽車")}：{item.assignedTankerType || t("未填")}
         </p>
         <p>
+          {t("槽車編號")}：{item.tankerNo ? `${item.tankerNo} ${item.tankerPressureType || ""}` : t("未填")}
+        </p>
+        <p>
           {t("合約價格")}：{item.contractPrice ?? t("未填")}
         </p>
         <p>
           {t("每次出貨量")}：{item.shipmentQty ?? t("未填")}
         </p>
       </div>
-      {item.remark ? (
-        <p className="mt-2 text-sm text-slate-500">
-          {t("備註")}：{item.remark}
-        </p>
-      ) : null}
+      <label className="mt-3 grid gap-2 text-sm font-medium text-slate-700">
+        {t("備註")}
+        <input
+          className="h-10 rounded-md border border-slate-300 px-3 text-sm outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+          onChange={(event) => onRemarkChange(event.target.value)}
+          placeholder={t("可自由輸入備註")}
+          value={item.remark || ""}
+        />
+      </label>
     </div>
   );
 }
@@ -669,9 +1069,10 @@ type DispatchFormProps = {
   form: DispatchFormState;
   onChange: (nextForm: DispatchFormState) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onTankerChange: (tankNo: string) => void;
 };
 
-function DispatchForm({ error, form, onChange, onSubmit }: DispatchFormProps) {
+function DispatchForm({ error, form, onChange, onSubmit, onTankerChange }: DispatchFormProps) {
   const { t } = useLanguage();
 
   return (
@@ -766,12 +1167,28 @@ function DispatchForm({ error, form, onChange, onSubmit }: DispatchFormProps) {
       </label>
 
       <label className="grid gap-2 text-sm font-medium text-slate-700">
+        {t("槽車編號")}
+        <select
+          className="h-11 rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+          value={form.tankerNo}
+          onChange={(event) => onTankerChange(event.target.value)}
+        >
+          <option value="">{t("請選擇槽車編號")}</option>
+          {importedTankers.map((tanker) => (
+            <option key={tanker.tankNo} value={tanker.tankNo}>
+              {tanker.tankNo}（{t(getPressureLabel(tanker.pressureType))}） / {tanker.plateNumber}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium text-slate-700">
         {t("車輛")}
         <input
-          className="h-11 rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-cyan-600 focus:ring-4 focus:ring-cyan-100"
+          className="h-11 rounded-md border border-slate-200 bg-slate-50 px-3 text-base text-slate-600"
+          readOnly
           value={form.vehicle}
-          onChange={(event) => onChange({ ...form, vehicle: event.target.value })}
-          placeholder={t("例如 車輛 D-088")}
+          placeholder={t("選擇槽車後自動帶入")}
         />
       </label>
 
