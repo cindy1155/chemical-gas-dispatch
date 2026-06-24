@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>化學氣體派車排班系統</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter,
+          "Noto Sans TC",
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
+        --cyan: #0e7490;
+        --cyan-dark: #155e75;
+        --slate-50: #f8fafc;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-900: #0f172a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--slate-50);
+        color: var(--slate-900);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .auth-page {
+        display: grid;
+        min-height: 100vh;
+      }
+
+      .brand-panel {
+        display: none;
+        background: var(--slate-900);
+        color: white;
+        padding: 40px 48px;
+      }
+
+      .brand-content {
+        display: flex;
+        min-height: calc(100vh - 80px);
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: #0e7490;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .brand-panel .eyebrow {
+        color: #67e8f9;
+      }
+
+      .hero-title {
+        max-width: 560px;
+        margin-bottom: 20px;
+        font-size: clamp(32px, 5vw, 44px);
+        line-height: 1.12;
+      }
+
+      .hero-copy {
+        max-width: 520px;
+        color: var(--slate-300);
+        line-height: 1.8;
+      }
+
+      .info-stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      .info-card {
+        border: 1px solid rgb(255 255 255 / 0.1);
+        border-radius: 8px;
+        background: rgb(255 255 255 / 0.05);
+        padding: 16px;
+      }
+
+      .info-card strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .info-card p {
+        margin: 0;
+        color: var(--slate-300);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .auth-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px;
+      }
+
+      .auth-wrap {
+        width: 100%;
+        max-width: 448px;
+      }
+
+      .mobile-title {
+        margin-bottom: 28px;
+      }
+
+      .mobile-title h1 {
+        margin-bottom: 0;
+        font-size: 30px;
+        line-height: 1.2;
+      }
+
+      .card,
+      .panel,
+      .metric-card,
+      .task-card {
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+      }
+
+      .card {
+        padding: 28px;
+      }
+
+      .card h2 {
+        margin-bottom: 8px;
+        font-size: 26px;
+      }
+
+      .description {
+        margin-bottom: 30px;
+        color: var(--slate-600);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      form {
+        display: grid;
+        gap: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--slate-700);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      input,
+      select {
+        width: 100%;
+        height: 44px;
+        border: 1px solid var(--slate-300);
+        border-radius: 6px;
+        background: white;
+        padding: 0 12px;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: var(--cyan);
+        box-shadow: 0 0 0 4px rgb(14 116 144 / 0.16);
+        outline: none;
+      }
+
+      button {
+        height: 44px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--cyan);
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      button:hover {
+        background: var(--cyan-dark);
+      }
+
+      .link-button {
+        width: auto;
+        height: auto;
+        border: 0;
+        background: none;
+        color: var(--cyan);
+        cursor: pointer;
+        font-weight: 800;
+        padding: 0;
+      }
+
+      .link-button:hover {
+        background: none;
+        color: var(--cyan-dark);
+      }
+
+      .switcher {
+        margin-top: 24px;
+        border-top: 1px solid var(--slate-200);
+        padding-top: 20px;
+        text-align: center;
+        color: var(--slate-600);
+        font-size: 14px;
+      }
+
+      .error {
+        display: none;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        background: #fef2f2;
+        color: #b91c1c;
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+
+      .dashboard {
+        display: none;
+        min-height: 100vh;
+      }
+
+      .topbar {
+        border-bottom: 1px solid var(--slate-200);
+        background: white;
+      }
+
+      .topbar-inner {
+        display: flex;
+        max-width: 1120px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 0 auto;
+        padding: 16px 20px;
+      }
+
+      .topbar h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .logout {
+        width: auto;
+        border: 1px solid var(--slate-300);
+        background: white;
+        color: var(--slate-700);
+        padding: 0 14px;
+      }
+
+      .logout:hover {
+        background: #f8fafc;
+      }
+
+      .metrics {
+        display: grid;
+        max-width: 1120px;
+        gap: 16px;
+        margin: 0 auto;
+        padding: 24px 20px 0;
+      }
+
+      .metric-card {
+        padding: 20px;
+      }
+
+      .metric-card span {
+        color: var(--slate-500);
+        font-size: 14px;
+      }
+
+      .metric-card strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 32px;
+      }
+
+      .metric-card small {
+        display: block;
+        margin-top: 8px;
+        color: var(--slate-500);
+        font-size: 14px;
+      }
+
+      .metric-card.limit-full small {
+        color: #dc2626;
+        font-weight: 700;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        max-width: 1120px;
+        gap: 20px;
+        margin: 0 auto;
+        padding: 24px 20px 32px;
+      }
+
+      .panel-header {
+        border-bottom: 1px solid var(--slate-200);
+        padding: 20px;
+      }
+
+      .panel-header h2 {
+        margin-bottom: 6px;
+        font-size: 20px;
+      }
+
+      .panel-header p,
+      .form-copy {
+        margin-bottom: 0;
+        color: var(--slate-600);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .task-list {
+        display: grid;
+      }
+
+      .task-row {
+        display: grid;
+        gap: 14px;
+        border-bottom: 1px solid var(--slate-200);
+        padding: 18px 20px;
+      }
+
+      .task-row:last-child {
+        border-bottom: 0;
+      }
+
+      .task-id {
+        margin-bottom: 4px;
+        color: var(--slate-500);
+        font-size: 14px;
+      }
+
+      .task-time {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 800;
+      }
+
+      .task-subtime {
+        margin: 8px 0 0;
+        color: var(--slate-500);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .task-row h3 {
+        margin-bottom: 8px;
+        font-size: 17px;
+      }
+
+      .task-row p {
+        margin-bottom: 0;
+        color: var(--slate-600);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .status {
+        width: fit-content;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .status-pending {
+        background: #fffbeb;
+        color: #b45309;
+      }
+
+      .status-active {
+        background: #ecfeff;
+        color: #0e7490;
+      }
+
+      .status-done {
+        background: #ecfdf5;
+        color: #047857;
+      }
+
+      .status-fixed {
+        background: #f5f3ff;
+        color: #6d28d9;
+      }
+
+      .status-normal {
+        background: #f1f5f9;
+        color: #334155;
+      }
+
+      .schedule-form {
+        padding: 20px;
+      }
+
+      .location-panel {
+        display: grid;
+        gap: 16px;
+        border-bottom: 1px solid var(--slate-200);
+        background: var(--slate-50);
+        padding: 20px;
+      }
+
+      .location-panel h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      .location-panel p {
+        margin-bottom: 0;
+        color: var(--slate-600);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .map-preview {
+        display: block;
+        width: 100%;
+        min-height: 128px;
+        border: 1px solid var(--slate-200);
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+      }
+
+      .map-preview iframe {
+        display: block;
+        width: 100%;
+        height: 224px;
+        border: 0;
+      }
+
+      .track-button {
+        width: fit-content;
+        height: 32px;
+        border: 1px solid var(--cyan);
+        background: white;
+        color: var(--cyan);
+        padding: 0 12px;
+      }
+
+      .track-button:hover {
+        background: #ecfeff;
+      }
+
+      @media (min-width: 720px) {
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .task-row {
+          grid-template-columns: 100px 1fr auto;
+          align-items: center;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .auth-page {
+          grid-template-columns: 1.05fr 0.95fr;
+        }
+
+        .brand-panel {
+          display: block;
+        }
+
+        .mobile-title {
+          display: none;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .dashboard-grid {
+          grid-template-columns: 1fr 360px;
+          align-items: start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="auth-page" id="authPage">
+      <section class="brand-panel">
+        <div class="brand-content">
+          <div>
+            <p class="eyebrow">Chemical Gas Dispatch System</p>
+            <h1 class="hero-title">化學氣體運輸與派車排班管理</h1>
+            <p class="hero-copy">
+              支援跨平台操作、排班協作與管理員自訂儀表板，協助車隊快速掌握任務、車輛與庫存狀態。
+            </p>
+          </div>
+          <div class="info-stack">
+            <div class="info-card">
+              <strong>RWD-first</strong>
+              <p>司機與主管可在手機、平板與桌機穩定操作。</p>
+            </div>
+            <div class="info-card">
+              <strong>Modular dashboard</strong>
+              <p>後續可用 JSON 儲存每位管理員的介面偏好。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="auth-panel">
+        <div class="auth-wrap">
+          <div class="mobile-title">
+            <p class="eyebrow">Chemical Gas Dispatch System</p>
+            <h1>化學氣體派車排班系統</h1>
+          </div>
+
+          <div class="card" id="loginCard">
+            <h2>登入管理平台</h2>
+            <p class="description">
+              請使用公司帳號登入，後續可依角色顯示排班、車隊與庫存模組。
+            </p>
+            <form id="loginForm">
+              <label>
+                帳號
+                <input id="account" autocomplete="username" placeholder="例如 dispatcher01" />
+              </label>
+              <label>
+                密碼
+                <input id="password" autocomplete="current-password" type="password" placeholder="輸入密碼" />
+              </label>
+              <p class="error" id="loginError">請輸入帳號與密碼。</p>
+              <button type="submit">登入</button>
+            </form>
+            <p class="switcher">
+              尚未有帳號？
+              <button class="link-button" id="showRegister" type="button">註冊帳號</button>
+            </p>
+          </div>
+
+          <div class="card" id="registerCard" style="display: none">
+            <h2>註冊帳號</h2>
+            <p class="description">
+              建立管理平台帳號。實際審核與權限分配將於後端 RBAC 完成後串接。
+            </p>
+            <form id="registerForm">
+              <label>
+                姓名
+                <input id="registerName" autocomplete="name" placeholder="例如 王小明" />
+              </label>
+              <label>
+                帳號
+                <input id="registerAccount" autocomplete="username" placeholder="例如 driver01" />
+              </label>
+              <label>
+                角色
+                <select id="registerRole">
+                  <option value="dispatcher">調度員</option>
+                  <option value="driver">司機</option>
+                  <option value="admin">管理員</option>
+                </select>
+              </label>
+              <label>
+                密碼
+                <input id="registerPassword" autocomplete="new-password" type="password" placeholder="至少 8 個字元" />
+              </label>
+              <label>
+                確認密碼
+                <input id="registerConfirmPassword" autocomplete="new-password" type="password" placeholder="再次輸入密碼" />
+              </label>
+              <p class="error" id="registerError">請完整填寫註冊資料。</p>
+              <button type="submit">建立帳號</button>
+            </form>
+            <p class="switcher">
+              已經有帳號？
+              <button class="link-button" id="showLogin" type="button">回到登入</button>
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <main class="dashboard" id="dashboardPage">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div>
+            <p class="eyebrow">Chemical Gas Dispatch System</p>
+            <h1>管理員儀表板</h1>
+          </div>
+          <button class="logout" id="logoutButton">登出</button>
+        </div>
+      </header>
+
+      <section class="metrics" id="metrics"></section>
+      <section class="metrics" id="gasMetrics"></section>
+
+      <section class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>每日派車列表</h2>
+            <p>一般排班與每日固定派車會顯示在同一份每日派車列表中。</p>
+          </div>
+          <div id="locationPanel"></div>
+          <div class="task-list" id="taskList"></div>
+        </div>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <h2>新增派車</h2>
+            <p>可登錄一般排班或每日固定派車，固定派車需設定客戶固定頻率。</p>
+          </div>
+          <form class="schedule-form" id="scheduleForm">
+            <label>
+              登錄類型
+              <select id="scheduleType">
+                <option>一般排班</option>
+                <option>固定派車</option>
+              </select>
+            </label>
+            <label>
+              派車時間
+              <input id="scheduleTime" type="time" />
+            </label>
+            <label>
+              出廠時間
+              <input id="scheduleDepartureTime" type="time" />
+            </label>
+            <label>
+              指定到達時間
+              <input id="scheduleArrivalTime" type="time" />
+            </label>
+            <label>
+              訂單編號
+              <input id="scheduleOrderNumber" placeholder="例如 SO-20260624-001" />
+            </label>
+            <label>
+              客戶 / 目的地
+              <input id="scheduleCustomer" placeholder="例如 台南半導體 D 廠" />
+            </label>
+            <label>
+              氣體種類
+              <select id="scheduleGas">
+                <option>氮氣 N2</option>
+                <option>氧氣 O2</option>
+                <option>氬氣 Ar</option>
+                <option>二氧化碳 CO2</option>
+              </select>
+            </label>
+            <label>
+              車輛
+              <input id="scheduleVehicle" placeholder="例如 車輛 D-088" />
+            </label>
+            <label>
+              司機
+              <input id="scheduleDriver" placeholder="例如 張司機" />
+            </label>
+            <label id="frequencyField" style="display: none">
+              固定頻率
+              <select id="scheduleFrequency">
+                <option>日</option>
+                <option>每二日</option>
+                <option>週</option>
+              </select>
+            </label>
+            <p class="error" id="scheduleError">請完整填寫派車時間、出廠時間、指定到達時間、客戶、車輛與司機。</p>
+            <button type="submit">新增派車</button>
+          </form>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const authPage = document.querySelector("#authPage");
+      const dashboardPage = document.querySelector("#dashboardPage");
+      const loginCard = document.querySelector("#loginCard");
+      const registerCard = document.querySelector("#registerCard");
+      const loginForm = document.querySelector("#loginForm");
+      const registerForm = document.querySelector("#registerForm");
+      const loginError = document.querySelector("#loginError");
+      const registerError = document.querySelector("#registerError");
+      const scheduleForm = document.querySelector("#scheduleForm");
+      const scheduleError = document.querySelector("#scheduleError");
+      const scheduleType = document.querySelector("#scheduleType");
+      const frequencyField = document.querySelector("#frequencyField");
+      const taskList = document.querySelector("#taskList");
+      const locationPanel = document.querySelector("#locationPanel");
+      const metrics = document.querySelector("#metrics");
+      const gasMetrics = document.querySelector("#gasMetrics");
+
+      const gasTripLimits = {
+        "氮氣 N2": 15,
+        "氧氣 O2": 5,
+        "氬氣 Ar": 2,
+        "二氧化碳 CO2": 3,
+      };
+
+      const gasOptions = Object.keys(gasTripLimits);
+
+      const vehicleLocations = {
+        "車輛 A-102": {
+          vehicle: "車輛 A-102",
+          area: "新竹市東區",
+          address: "新竹科學園區力行路附近",
+          latitude: 24.7819,
+          longitude: 121.0086,
+          updatedAt: "2 分鐘前",
+        },
+        "車輛 B-216": {
+          vehicle: "車輛 B-216",
+          area: "台中市西屯區",
+          address: "台灣大道四段附近",
+          latitude: 24.1811,
+          longitude: 120.6037,
+          updatedAt: "5 分鐘前",
+        },
+        "車輛 C-031": {
+          vehicle: "車輛 C-031",
+          area: "桃園市龜山區",
+          address: "文化一路附近",
+          latitude: 25.0532,
+          longitude: 121.3669,
+          updatedAt: "8 分鐘前",
+        },
+      };
+
+      let trackedVehicle = "車輛 A-102";
+
+      let tasks = [
+        {
+          id: "DSP-001",
+          scheduleType: "一般排班",
+          orderNumber: "SO-20260624-001",
+          dispatchTime: "08:30",
+          departureTime: "09:00",
+          arrivalTime: "10:15",
+          customer: "新竹科學園區 A 廠",
+          gasType: "氮氣 N2",
+          vehicle: "車輛 A-102",
+          driver: "王司機",
+          frequency: "日",
+          status: "配送中",
+        },
+        {
+          id: "FIX-001",
+          scheduleType: "固定派車",
+          orderNumber: "SO-FIX-N2-001",
+          dispatchTime: "08:00",
+          departureTime: "08:30",
+          arrivalTime: "09:45",
+          customer: "固定路線：新竹園區每日補氣",
+          gasType: "氮氣 N2",
+          vehicle: "車輛 A-102",
+          driver: "王司機",
+          frequency: "日",
+          status: "待派車",
+        },
+        {
+          id: "DSP-002",
+          scheduleType: "一般排班",
+          orderNumber: "SO-20260624-002",
+          dispatchTime: "11:00",
+          departureTime: "11:30",
+          arrivalTime: "13:00",
+          customer: "台中精密製造 B 廠",
+          gasType: "氧氣 O2",
+          vehicle: "車輛 B-216",
+          driver: "陳司機",
+          frequency: "日",
+          status: "待派車",
+        },
+        {
+          id: "DSP-003",
+          scheduleType: "一般排班",
+          orderNumber: "SO-20260624-003",
+          dispatchTime: "13:30",
+          departureTime: "14:00",
+          arrivalTime: "15:10",
+          customer: "桃園電子材料 C 廠",
+          gasType: "氬氣 Ar",
+          vehicle: "車輛 C-031",
+          driver: "林司機",
+          frequency: "日",
+          status: "已完成",
+        },
+      ];
+
+      const statusClass = {
+        待派車: "status-pending",
+        配送中: "status-active",
+        已完成: "status-done",
+      };
+
+      function renderDashboard() {
+        const summary = [
+          ["今日派車", tasks.length],
+          ["固定派車", tasks.filter((task) => task.scheduleType === "固定派車").length],
+          ["待派車", tasks.filter((task) => task.status === "待派車").length],
+          ["配送中", tasks.filter((task) => task.status === "配送中").length],
+        ];
+
+        metrics.innerHTML = summary
+          .map(
+            ([label, value]) => `
+              <article class="metric-card">
+                <span>${label}</span>
+                <strong>${value}</strong>
+              </article>
+            `,
+          )
+          .join("");
+
+        gasMetrics.innerHTML = gasOptions
+          .map((gasType) => {
+            const used = tasks.filter((task) => task.gasType === gasType).length;
+            const limit = gasTripLimits[gasType];
+            const isFull = used >= limit;
+
+            return `
+              <article class="metric-card ${isFull ? "limit-full" : ""}">
+                <span>${gasType}</span>
+                <strong>${used} / ${limit} 趟</strong>
+                <small>${isFull ? "已達今日上限" : "今日可新增"}</small>
+              </article>
+            `;
+          })
+          .join("");
+
+        const location = vehicleLocations[trackedVehicle];
+        const mapQuery = location
+          ? `${location.latitude},${location.longitude}`
+          : "";
+        const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`;
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+        locationPanel.innerHTML = location
+          ? `
+              <section class="location-panel">
+                <div>
+                  <p class="eyebrow">車輛即時定位</p>
+                  <h3>${location.vehicle}</h3>
+                  <p>${location.area} / ${location.address}</p>
+                  <p>座標：${location.latitude}, ${location.longitude} / 更新：${location.updatedAt}</p>
+                  <p><a class="track-button" href="${mapsUrl}" target="_blank" rel="noreferrer">在 Google Maps 開啟</a></p>
+                </div>
+                <div class="map-preview">
+                  <iframe
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="${embedUrl}"
+                    title="${location.vehicle} Google Maps 位置"
+                  ></iframe>
+                </div>
+              </section>
+            `
+          : "";
+
+        taskList.innerHTML = tasks
+          .map(
+            (task) => `
+              <article class="task-row">
+                <div>
+                  <p class="task-id">${task.id}</p>
+                  <p class="task-time">${task.dispatchTime}</p>
+                  <p class="task-subtime">出廠 ${task.departureTime}<br />到達 ${task.arrivalTime}</p>
+                </div>
+                <div>
+                  <h3>${task.customer}</h3>
+                  <p>訂單編號：${task.orderNumber || "未填"}</p>
+                  <p>${task.gasType} / ${task.vehicle} / ${task.driver}</p>
+                </div>
+                <div>
+                  <span class="status ${task.scheduleType === "固定派車" ? "status-fixed" : "status-normal"}">${task.scheduleType}</span>
+                  ${task.scheduleType === "固定派車" ? `<span class="status status-normal">${task.frequency}</span>` : ""}
+                  <span class="status ${statusClass[task.status]}">${task.status}</span>
+                  <button class="track-button" data-track-vehicle="${task.vehicle}" type="button">追蹤定位</button>
+                </div>
+              </article>
+            `,
+          )
+          .join("");
+
+        taskList.querySelectorAll("[data-track-vehicle]").forEach((button) => {
+          button.addEventListener("click", () => {
+            trackedVehicle = button.getAttribute("data-track-vehicle");
+            if (!vehicleLocations[trackedVehicle]) {
+              vehicleLocations[trackedVehicle] = {
+                vehicle: trackedVehicle,
+                area: "尚無即時區域資料",
+                address: "此車輛尚未串接 GPS 回傳位置",
+                latitude: 0,
+                longitude: 0,
+                updatedAt: "尚未更新",
+              };
+            }
+            renderDashboard();
+          });
+        });
+      }
+
+      function getGasLimitError(gasType) {
+        const usedTrips = tasks.filter((task) => task.gasType === gasType).length;
+        const maxTrips = gasTripLimits[gasType];
+
+        if (usedTrips >= maxTrips) {
+          return `${gasType} 今日已達 ${maxTrips} 趟上限，請調整氣體種類或改到其他日期。`;
+        }
+
+        return "";
+      }
+
+      document.querySelector("#showRegister").addEventListener("click", () => {
+        loginCard.style.display = "none";
+        registerCard.style.display = "block";
+      });
+
+      document.querySelector("#showLogin").addEventListener("click", () => {
+        registerCard.style.display = "none";
+        loginCard.style.display = "block";
+      });
+
+      scheduleType.addEventListener("change", () => {
+        frequencyField.style.display =
+          scheduleType.value === "固定派車" ? "grid" : "none";
+      });
+
+      loginForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const account = document.querySelector("#account").value.trim();
+        const password = document.querySelector("#password").value.trim();
+
+        if (!account || !password) {
+          loginError.style.display = "block";
+          return;
+        }
+
+        loginError.style.display = "none";
+        authPage.style.display = "none";
+        dashboardPage.style.display = "block";
+        renderDashboard();
+      });
+
+      registerForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const name = document.querySelector("#registerName").value.trim();
+        const account = document.querySelector("#registerAccount").value.trim();
+        const password = document.querySelector("#registerPassword").value.trim();
+        const confirmPassword = document.querySelector("#registerConfirmPassword").value.trim();
+
+        if (!name || !account || !password || !confirmPassword) {
+          registerError.textContent = "請完整填寫註冊資料。";
+          registerError.style.display = "block";
+          return;
+        }
+
+        if (password.length < 8) {
+          registerError.textContent = "密碼至少需要 8 個字元。";
+          registerError.style.display = "block";
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          registerError.textContent = "兩次輸入的密碼不一致。";
+          registerError.style.display = "block";
+          return;
+        }
+
+        registerError.style.display = "none";
+        registerCard.style.display = "none";
+        loginCard.style.display = "block";
+      });
+
+      scheduleForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const dispatchTime = document.querySelector("#scheduleTime").value.trim();
+        const departureTime = document.querySelector("#scheduleDepartureTime").value.trim();
+        const arrivalTime = document.querySelector("#scheduleArrivalTime").value.trim();
+        const orderNumber = document.querySelector("#scheduleOrderNumber").value.trim();
+        const customer = document.querySelector("#scheduleCustomer").value.trim();
+        const gasType = document.querySelector("#scheduleGas").value;
+        const vehicle = document.querySelector("#scheduleVehicle").value.trim();
+        const driver = document.querySelector("#scheduleDriver").value.trim();
+        const type = document.querySelector("#scheduleType").value;
+        const frequency = document.querySelector("#scheduleFrequency").value;
+
+        if (!dispatchTime || !departureTime || !arrivalTime || !customer || !vehicle || !driver) {
+          scheduleError.textContent = "請完整填寫派車時間、出廠時間、指定到達時間、客戶、車輛與司機。";
+          scheduleError.style.display = "block";
+          return;
+        }
+
+        const limitError = getGasLimitError(gasType);
+        if (limitError) {
+          scheduleError.textContent = limitError;
+          scheduleError.style.display = "block";
+          return;
+        }
+
+        scheduleError.style.display = "none";
+        tasks = [
+          {
+            id: `${type === "固定派車" ? "FIX" : "DSP"}-${String(tasks.length + 1).padStart(3, "0")}`,
+            scheduleType: type,
+            orderNumber,
+            dispatchTime,
+            departureTime,
+            arrivalTime,
+            customer,
+            gasType,
+            vehicle,
+            driver,
+            frequency,
+            status: "待派車",
+          },
+          ...tasks,
+        ];
+        scheduleForm.reset();
+        frequencyField.style.display = "none";
+        renderDashboard();
+      });
+
+      document.querySelector("#logoutButton").addEventListener("click", () => {
+        dashboardPage.style.display = "none";
+        authPage.style.display = "grid";
+      });
+    </script>
+  </body>
+</html>
