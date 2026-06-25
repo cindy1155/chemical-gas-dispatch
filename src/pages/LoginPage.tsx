@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../components/AuthLayout";
 import { useLanguage } from "../i18n/LanguageContext";
+import { appendSecurityEvent } from "../utils/securityEvents";
 
 type LoginFormState = {
   account: string;
@@ -17,6 +18,7 @@ const initialFormState: LoginFormState = {
 
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authAccountStorageKey = "chemical-gas-dispatch-auth-account";
 const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
 const failedLoginCountStorageKey = "chemical-gas-dispatch-failed-login-count";
 const loginLockUntilStorageKey = "chemical-gas-dispatch-login-lock-until";
@@ -94,6 +96,11 @@ export function LoginPage() {
 
     if (currentLockRemainingMinutes > 0) {
       setLockRemainingMinutes(currentLockRemainingMinutes);
+      appendSecurityEvent({
+        account: form.account.trim() || "未填",
+        message: "鎖定期間再次嘗試登入",
+        type: "登入鎖定",
+      });
       setError(`${t("登入嘗試過多，請稍後再試。")} ${t("剩餘")} ${currentLockRemainingMinutes} ${t("分鐘")}`);
       return;
     }
@@ -101,6 +108,11 @@ export function LoginPage() {
     if (!form.account.trim() || !form.password.trim()) {
       const isLocked = recordBlockedLoginAttempt();
       setLockRemainingMinutes(getLoginLockRemainingMinutes());
+      appendSecurityEvent({
+        account: form.account.trim() || "未填",
+        message: isLocked ? "達到登入嘗試上限" : "帳號或密碼未填完整",
+        type: isLocked ? "登入鎖定" : "登入被擋",
+      });
       setError(t(isLocked ? "已達登入嘗試上限，請 5 分鐘後再試。" : "請輸入帳號與密碼。"));
       return;
     }
@@ -110,6 +122,12 @@ export function LoginPage() {
     if (role === "司機") {
       const isLocked = recordBlockedLoginAttempt();
       setLockRemainingMinutes(getLoginLockRemainingMinutes());
+      appendSecurityEvent({
+        account: form.account.trim(),
+        message: isLocked ? "達到登入嘗試上限" : "司機帳號嘗試進入管理後台",
+        role,
+        type: isLocked ? "登入鎖定" : "角色阻擋",
+      });
       setError(
         t(
           isLocked
@@ -124,7 +142,14 @@ export function LoginPage() {
     setLockRemainingMinutes(0);
     window.localStorage.setItem(authStorageKey, "authenticated");
     window.localStorage.setItem(authRoleStorageKey, role);
+    window.localStorage.setItem(authAccountStorageKey, form.account.trim());
     window.localStorage.setItem(authExpiresAtStorageKey, String(Date.now() + loginSessionDurationMs));
+    appendSecurityEvent({
+      account: form.account.trim(),
+      message: "管理後台登入成功",
+      role,
+      type: "登入成功",
+    });
     navigate("/dashboard");
   };
 

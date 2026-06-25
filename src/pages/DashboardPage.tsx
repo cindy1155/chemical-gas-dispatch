@@ -7,6 +7,11 @@ import {
   importedMaterialPrices,
   importedTankers,
 } from "../data/importedData";
+import {
+  appendSecurityEvent,
+  readSecurityEvents,
+  type SecurityEvent,
+} from "../utils/securityEvents";
 
 type DispatchStatus = "待派車" | "配送中" | "已完成";
 type GasType = "氮氣 N2" | "氧氣 O2" | "氬氣 Ar" | "二氧化碳 CO2";
@@ -82,12 +87,14 @@ const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
 const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表", "gas物料價格表"];
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authAccountStorageKey = "chemical-gas-dispatch-auth-account";
 const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
 const loginSessionMinutes = 60;
 
 const clearAuthSession = () => {
   window.localStorage.removeItem(authStorageKey);
   window.localStorage.removeItem(authRoleStorageKey);
+  window.localStorage.removeItem(authAccountStorageKey);
   window.localStorage.removeItem(authExpiresAtStorageKey);
 };
 
@@ -305,6 +312,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const [currentRole] = useState(() => window.localStorage.getItem(authRoleStorageKey) || "調度員");
+  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>(readSecurityEvents);
   const [tasks, setTasks] = useState<DispatchTask[]>(initialTasks);
   const [form, setForm] = useState<DispatchFormState>(initialFormState);
   const [error, setError] = useState("");
@@ -318,11 +326,19 @@ export function DashboardPage() {
   const [tableFilters, setTableFilters] =
     useState<Record<WorkTab, TableFilterState>>(defaultTableFilters);
 
+  const refreshSecurityEvents = () => setSecurityEvents(readSecurityEvents());
+
   useEffect(() => {
     const timerId = window.setInterval(() => {
       const expiresAt = Number(window.localStorage.getItem(authExpiresAtStorageKey) || "0");
 
       if (!expiresAt || expiresAt <= Date.now()) {
+        appendSecurityEvent({
+          account: window.localStorage.getItem(authAccountStorageKey) || "未填",
+          message: "登入有效期限已過期",
+          role: window.localStorage.getItem(authRoleStorageKey) || undefined,
+          type: "登入過期",
+        });
         clearAuthSession();
         navigate("/login", { replace: true });
       }
@@ -564,6 +580,13 @@ export function DashboardPage() {
   };
 
   const handleLogout = () => {
+    appendSecurityEvent({
+      account: window.localStorage.getItem(authAccountStorageKey) || "未填",
+      message: "使用者主動登出",
+      role: currentRole,
+      type: "登出",
+    });
+    refreshSecurityEvents();
     clearAuthSession();
     navigate("/login", { replace: true });
   };
@@ -620,6 +643,10 @@ export function DashboardPage() {
         <SummaryCard label={t("匯入司機")} value={importedDrivers.length} />
         <SummaryCard label={t("匯入槽車")} value={importedTankers.length} />
         <SummaryCard label={t("匯入物料價格")} value={importedMaterialPrices.length} />
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-6">
+        <SecurityEventsPanel events={securityEvents} onRefresh={refreshSecurityEvents} />
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pb-10">
@@ -1594,5 +1621,73 @@ function GasLimitCard({ gasType, used, limit }: GasLimitCardProps) {
         {isFull ? t("已達今日上限") : t("今日可新增")}
       </p>
     </article>
+  );
+}
+
+type SecurityEventsPanelProps = {
+  events: SecurityEvent[];
+  onRefresh: () => void;
+};
+
+function SecurityEventsPanel({ events, onRefresh }: SecurityEventsPanelProps) {
+  const { language, t } = useLanguage();
+  const recentEvents = events.slice(0, 6);
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
+        <div>
+          <h2 className="text-lg font-semibold">{t("安全事件紀錄")}</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            {t("顯示最近登入、阻擋、鎖定、過期與登出紀錄。")}
+          </p>
+        </div>
+        <button
+          className="h-9 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          onClick={onRefresh}
+          type="button"
+        >
+          {t("重新整理")}
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              {["時間", "事件", "帳號", "角色", "說明"].map((header) => (
+                <th className="px-4 py-3 font-semibold" key={header}>
+                  {t(header)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200">
+            {recentEvents.length ? (
+              recentEvents.map((event) => (
+                <tr key={event.id}>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                    {new Date(event.createdAt).toLocaleString(language === "en" ? "en-US" : "zh-TW")}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">
+                    {t(event.type)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">{event.account}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                    {event.role ? t(event.role) : t("未填")}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{t(event.message)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="px-4 py-5 text-center text-slate-500" colSpan={5}>
+                  {t("尚無安全事件紀錄")}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

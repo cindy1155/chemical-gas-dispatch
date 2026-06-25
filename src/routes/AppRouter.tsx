@@ -6,12 +6,14 @@ import { RegisterPage } from "../pages/RegisterPage";
 
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authAccountStorageKey = "chemical-gas-dispatch-auth-account";
 const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
 type AuthRole = "管理員" | "調度員" | "司機";
 
 const clearAuthSession = () => {
   window.localStorage.removeItem(authStorageKey);
   window.localStorage.removeItem(authRoleStorageKey);
+  window.localStorage.removeItem(authAccountStorageKey);
   window.localStorage.removeItem(authExpiresAtStorageKey);
 };
 
