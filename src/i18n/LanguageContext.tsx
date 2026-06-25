@@ -26,6 +26,9 @@ const translations: Record<string, string> = {
   "登入嘗試過多，請稍後再試。": "Too many sign-in attempts. Please try again later.",
   "已達登入嘗試上限，請 5 分鐘後再試。":
     "The sign-in attempt limit has been reached. Please try again in 5 minutes.",
+  "登入已暫時鎖定": "Sign-in is temporarily locked",
+  "剩餘": "Remaining",
+  "分鐘": "minutes",
   "司機帳號目前不可進入管理後台，請使用管理員或調度員帳號。":
     "Driver accounts cannot access the admin dashboard yet. Please use an admin or dispatcher account.",
   "登入": "Sign In",
