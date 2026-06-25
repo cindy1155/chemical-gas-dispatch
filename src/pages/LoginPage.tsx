@@ -17,10 +17,12 @@ const initialFormState: LoginFormState = {
 
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
 const failedLoginCountStorageKey = "chemical-gas-dispatch-failed-login-count";
 const loginLockUntilStorageKey = "chemical-gas-dispatch-login-lock-until";
 const maxFailedLoginAttempts = 5;
 const loginLockDurationMs = 5 * 60 * 1000;
+const loginSessionDurationMs = 30 * 60 * 1000;
 
 const getLoginLockRemainingMinutes = () => {
   const lockUntil = Number(window.localStorage.getItem(loginLockUntilStorageKey) || "0");
@@ -122,6 +124,7 @@ export function LoginPage() {
     setLockRemainingMinutes(0);
     window.localStorage.setItem(authStorageKey, "authenticated");
     window.localStorage.setItem(authRoleStorageKey, role);
+    window.localStorage.setItem(authExpiresAtStorageKey, String(Date.now() + loginSessionDurationMs));
     navigate("/dashboard");
   };
 

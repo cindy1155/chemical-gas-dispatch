@@ -6,7 +6,14 @@ import { RegisterPage } from "../pages/RegisterPage";
 
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
 type AuthRole = "管理員" | "調度員" | "司機";
+
+const clearAuthSession = () => {
+  window.localStorage.removeItem(authStorageKey);
+  window.localStorage.removeItem(authRoleStorageKey);
+  window.localStorage.removeItem(authExpiresAtStorageKey);
+};
 
 function ProtectedRoute({
   allowedRoles,
@@ -17,8 +24,11 @@ function ProtectedRoute({
 }) {
   const isAuthenticated = window.localStorage.getItem(authStorageKey) === "authenticated";
   const currentRole = window.localStorage.getItem(authRoleStorageKey) as AuthRole | null;
+  const expiresAt = Number(window.localStorage.getItem(authExpiresAtStorageKey) || "0");
+  const isSessionActive = expiresAt > Date.now();
 
-  if (!isAuthenticated || !currentRole || !allowedRoles.includes(currentRole)) {
+  if (!isAuthenticated || !currentRole || !isSessionActive || !allowedRoles.includes(currentRole)) {
+    clearAuthSession();
     return <Navigate to="/login" replace />;
   }
 

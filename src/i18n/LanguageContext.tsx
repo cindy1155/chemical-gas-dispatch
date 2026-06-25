@@ -57,6 +57,7 @@ const translations: Record<string, string> = {
   "司機": "Driver",
   "管理員": "Admin",
   "目前角色": "Current Role",
+  "登入有效期限": "Session expires in",
   "至少 8 個字元": "At least 8 characters",
   "再次輸入密碼": "Enter password again",
   "管理員儀表板": "Admin Dashboard",

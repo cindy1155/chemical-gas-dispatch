@@ -82,6 +82,14 @@ const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
 const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表", "gas物料價格表"];
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
+const loginSessionMinutes = 30;
+
+const clearAuthSession = () => {
+  window.localStorage.removeItem(authStorageKey);
+  window.localStorage.removeItem(authRoleStorageKey);
+  window.localStorage.removeItem(authExpiresAtStorageKey);
+};
 
 const defaultTableFilters: Record<WorkTab, TableFilterState> = {
   派車表: { field: "orderNumber", keyword: "" },
@@ -309,6 +317,19 @@ export function DashboardPage() {
   const [isDataLinked, setIsDataLinked] = useState(true);
   const [tableFilters, setTableFilters] =
     useState<Record<WorkTab, TableFilterState>>(defaultTableFilters);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      const expiresAt = Number(window.localStorage.getItem(authExpiresAtStorageKey) || "0");
+
+      if (!expiresAt || expiresAt <= Date.now()) {
+        clearAuthSession();
+        navigate("/login", { replace: true });
+      }
+    }, 30000);
+
+    return () => window.clearInterval(timerId);
+  }, [navigate]);
 
   const summary = useMemo(
     () => ({
@@ -543,8 +564,7 @@ export function DashboardPage() {
   };
 
   const handleLogout = () => {
-    window.localStorage.removeItem(authStorageKey);
-    window.localStorage.removeItem(authRoleStorageKey);
+    clearAuthSession();
     navigate("/login", { replace: true });
   };
 
@@ -561,6 +581,9 @@ export function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 sm:inline-flex">
               {t("目前角色")}：{t(currentRole)}
+            </span>
+            <span className="hidden rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 lg:inline-flex">
+              {t("登入有效期限")}：{loginSessionMinutes} {t("分鐘")}
             </span>
             <LanguageToggle />
             <button
