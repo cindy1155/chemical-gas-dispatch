@@ -8,12 +8,34 @@ type LoginFormState = {
   password: string;
 };
 
+type AuthRole = "管理員" | "調度員" | "司機";
+
 const initialFormState: LoginFormState = {
   account: "",
   password: "",
 };
 
 const authStorageKey = "chemical-gas-dispatch-auth";
+const authRoleStorageKey = "chemical-gas-dispatch-role";
+
+const getRoleFromAccount = (account: string): AuthRole => {
+  const normalizedAccount = account.trim().toLowerCase();
+
+  if (normalizedAccount.includes("driver") || normalizedAccount.includes("司機")) {
+    return "司機";
+  }
+
+  if (
+    normalizedAccount.includes("admin") ||
+    normalizedAccount.includes("manager") ||
+    normalizedAccount.includes("cindy") ||
+    normalizedAccount.includes("管理")
+  ) {
+    return "管理員";
+  }
+
+  return "調度員";
+};
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -30,7 +52,15 @@ export function LoginPage() {
       return;
     }
 
+    const role = getRoleFromAccount(form.account);
+
+    if (role === "司機") {
+      setError(t("司機帳號目前不可進入管理後台，請使用管理員或調度員帳號。"));
+      return;
+    }
+
     window.localStorage.setItem(authStorageKey, "authenticated");
+    window.localStorage.setItem(authRoleStorageKey, role);
     navigate("/dashboard");
   };
 

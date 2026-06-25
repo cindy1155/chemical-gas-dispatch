@@ -81,6 +81,7 @@ const frequencyOptions: FixedFrequency[] = ["日", "每二日", "週"];
 const scheduleTypeOptions: ScheduleType[] = ["一般排班", "固定派車"];
 const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表", "gas物料價格表"];
 const authStorageKey = "chemical-gas-dispatch-auth";
+const authRoleStorageKey = "chemical-gas-dispatch-role";
 
 const defaultTableFilters: Record<WorkTab, TableFilterState> = {
   派車表: { field: "orderNumber", keyword: "" },
@@ -295,6 +296,7 @@ const typeStyles: Record<ScheduleType, string> = {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
+  const [currentRole] = useState(() => window.localStorage.getItem(authRoleStorageKey) || "調度員");
   const [tasks, setTasks] = useState<DispatchTask[]>(initialTasks);
   const [form, setForm] = useState<DispatchFormState>(initialFormState);
   const [error, setError] = useState("");
@@ -542,6 +544,7 @@ export function DashboardPage() {
 
   const handleLogout = () => {
     window.localStorage.removeItem(authStorageKey);
+    window.localStorage.removeItem(authRoleStorageKey);
     navigate("/login", { replace: true });
   };
 
@@ -556,6 +559,9 @@ export function DashboardPage() {
             <h1 className="text-xl font-semibold">{t("管理員儀表板")}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <span className="hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 sm:inline-flex">
+              {t("目前角色")}：{t(currentRole)}
+            </span>
             <LanguageToggle />
             <button
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"

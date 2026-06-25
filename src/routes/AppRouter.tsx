@@ -5,11 +5,20 @@ import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
 
 const authStorageKey = "chemical-gas-dispatch-auth";
+const authRoleStorageKey = "chemical-gas-dispatch-role";
+type AuthRole = "管理員" | "調度員" | "司機";
 
-function ProtectedRoute({ children }: { children: ReactElement }) {
+function ProtectedRoute({
+  allowedRoles,
+  children,
+}: {
+  allowedRoles: AuthRole[];
+  children: ReactElement;
+}) {
   const isAuthenticated = window.localStorage.getItem(authStorageKey) === "authenticated";
+  const currentRole = window.localStorage.getItem(authRoleStorageKey) as AuthRole | null;
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !currentRole || !allowedRoles.includes(currentRole)) {
     return <Navigate to="/login" replace />;
   }
 
@@ -25,7 +34,7 @@ export function AppRouter() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={["管理員", "調度員"]}>
             <DashboardPage />
           </ProtectedRoute>
         }

@@ -23,6 +23,8 @@ const translations: Record<string, string> = {
   "帳號": "Account",
   "密碼": "Password",
   "請輸入帳號與密碼。": "Please enter account and password.",
+  "司機帳號目前不可進入管理後台，請使用管理員或調度員帳號。":
+    "Driver accounts cannot access the admin dashboard yet. Please use an admin or dispatcher account.",
   "登入": "Sign In",
   "尚未有帳號？": "No account yet?",
   "註冊帳號": "Create Account",
@@ -48,6 +50,7 @@ const translations: Record<string, string> = {
   "調度員": "Dispatcher",
   "司機": "Driver",
   "管理員": "Admin",
+  "目前角色": "Current Role",
   "至少 8 個字元": "At least 8 characters",
   "再次輸入密碼": "Enter password again",
   "管理員儀表板": "Admin Dashboard",
