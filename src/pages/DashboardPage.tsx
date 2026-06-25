@@ -83,7 +83,7 @@ const workTabs: WorkTab[] = ["派車表", "客戶訂單總表", "氣體明細表
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
 const authExpiresAtStorageKey = "chemical-gas-dispatch-auth-expires-at";
-const loginSessionMinutes = 30;
+const loginSessionMinutes = 60;
 
 const clearAuthSession = () => {
   window.localStorage.removeItem(authStorageKey);

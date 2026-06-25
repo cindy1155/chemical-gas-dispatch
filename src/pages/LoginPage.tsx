@@ -22,7 +22,7 @@ const failedLoginCountStorageKey = "chemical-gas-dispatch-failed-login-count";
 const loginLockUntilStorageKey = "chemical-gas-dispatch-login-lock-until";
 const maxFailedLoginAttempts = 5;
 const loginLockDurationMs = 5 * 60 * 1000;
-const loginSessionDurationMs = 30 * 60 * 1000;
+const loginSessionDurationMs = 60 * 60 * 1000;
 
 const getLoginLockRemainingMinutes = () => {
   const lockUntil = Number(window.localStorage.getItem(loginLockUntilStorageKey) || "0");
