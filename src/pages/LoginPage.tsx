@@ -17,6 +17,36 @@ const initialFormState: LoginFormState = {
 
 const authStorageKey = "chemical-gas-dispatch-auth";
 const authRoleStorageKey = "chemical-gas-dispatch-role";
+const failedLoginCountStorageKey = "chemical-gas-dispatch-failed-login-count";
+const loginLockUntilStorageKey = "chemical-gas-dispatch-login-lock-until";
+const maxFailedLoginAttempts = 5;
+const loginLockDurationMs = 5 * 60 * 1000;
+
+const getLoginLockRemainingMinutes = () => {
+  const lockUntil = Number(window.localStorage.getItem(loginLockUntilStorageKey) || "0");
+  const remainingMs = lockUntil - Date.now();
+
+  return remainingMs > 0 ? Math.ceil(remainingMs / 60000) : 0;
+};
+
+const recordBlockedLoginAttempt = () => {
+  const currentCount = Number(window.localStorage.getItem(failedLoginCountStorageKey) || "0");
+  const nextCount = currentCount + 1;
+
+  if (nextCount >= maxFailedLoginAttempts) {
+    window.localStorage.setItem(loginLockUntilStorageKey, String(Date.now() + loginLockDurationMs));
+    window.localStorage.removeItem(failedLoginCountStorageKey);
+    return true;
+  }
+
+  window.localStorage.setItem(failedLoginCountStorageKey, String(nextCount));
+  return false;
+};
+
+const clearLoginProtectionState = () => {
+  window.localStorage.removeItem(failedLoginCountStorageKey);
+  window.localStorage.removeItem(loginLockUntilStorageKey);
+};
 
 const getRoleFromAccount = (account: string): AuthRole => {
   const normalizedAccount = account.trim().toLowerCase();
@@ -47,18 +77,32 @@ export function LoginPage() {
     event.preventDefault();
     setError("");
 
+    if (getLoginLockRemainingMinutes() > 0) {
+      setError(t("登入嘗試過多，請稍後再試。"));
+      return;
+    }
+
     if (!form.account.trim() || !form.password.trim()) {
-      setError(t("請輸入帳號與密碼。"));
+      const isLocked = recordBlockedLoginAttempt();
+      setError(t(isLocked ? "已達登入嘗試上限，請 5 分鐘後再試。" : "請輸入帳號與密碼。"));
       return;
     }
 
     const role = getRoleFromAccount(form.account);
 
     if (role === "司機") {
-      setError(t("司機帳號目前不可進入管理後台，請使用管理員或調度員帳號。"));
+      const isLocked = recordBlockedLoginAttempt();
+      setError(
+        t(
+          isLocked
+            ? "已達登入嘗試上限，請 5 分鐘後再試。"
+            : "司機帳號目前不可進入管理後台，請使用管理員或調度員帳號。",
+        ),
+      );
       return;
     }
 
+    clearLoginProtectionState();
     window.localStorage.setItem(authStorageKey, "authenticated");
     window.localStorage.setItem(authRoleStorageKey, role);
     navigate("/dashboard");
